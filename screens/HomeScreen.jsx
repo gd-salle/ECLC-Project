@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Text, Image, Alert } from 'react-native';
+import { StyleSheet, View, Text, Image, Alert, Platform } from 'react-native';
 import { Button, TextInput } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import AuthDialog from '../components/AutheticationDialog'
@@ -7,9 +7,11 @@ import AdminToolsDialog from '../components/AdminToolsDialog';
 import AccountCreationDialog from '../components/AccountCreationDialog';
 import ExportConfirmationDialog from '../components/ExportConfirmationDialog';
 import CollectionDateDialog from '../components/CollectionDateDialog';
+import BluetoothConfig from '../components/BluetoothConfig';
 import { handleImport } from '../services/FileService';
 import { getConsultantInfo } from '../services/UserService';
 import { fetchAllPeriods, fetchLatestPeriodDate, fetchLatestPeriodID, exportCollectibles } from '../services/CollectiblesServices';
+import { isBluetoothEnabled } from '../services/BluetoothService';
 
 const HomeScreen = () => {
   const [consultant, setConsultant] = useState('');
@@ -21,6 +23,7 @@ const HomeScreen = () => {
   const [isExportConfirmationVisible, setExportConfirmationVisible] = useState(false);
   const [isAccountCreationVisible, setAccountCreationVisible] = useState(false);
   const [isCollectionDateDialogVisible, setCollectionDateDialogVisible] = useState(false);
+  const [isBluetoothConfigVisible, setBluetoothConfigVisible] = useState(false);
   const [pendingAction, setPendingAction] = useState(() => {});
 
   const navigation = useNavigation();
@@ -31,7 +34,19 @@ const HomeScreen = () => {
       await fetchAndSetLatestPeriodDate();
     };
 
+    const checkBluetooth = async () => {
+      const bluetoothEnabled = await isBluetoothEnabled();
+      if (!bluetoothEnabled) {
+        Alert.alert(
+          'Bluetooth Required',
+          'Please enable Bluetooth to use this app.',
+          [{ text: 'OK' }]
+        );
+      }
+    };
+
     fetchData();
+    checkBluetooth();
   }, []);
 
   const fetchConsultantInfo = async () => {
@@ -70,6 +85,10 @@ const HomeScreen = () => {
       console.error('Error fetching period data:', error);
     }
   }
+
+  const handleShowBluetoothConfig = () => {
+    setBluetoothConfigVisible(true);
+  };
 
   const handleAdminTools = () => {
     setAuthAction('admin');
@@ -208,6 +227,16 @@ const HomeScreen = () => {
       >
         TEST
       </Button>
+
+      <Button
+        mode="outlined"
+        onPress={handleShowBluetoothConfig}
+        style={styles.adminButton}
+        labelStyle={styles.adminButtonText}
+      >
+        SHOW BLUETOOTH CONFIG
+      </Button>
+
       <AuthDialog 
         visible={isDialogVisible} 
         onClose={handleDialogClose} 
@@ -241,6 +270,10 @@ const HomeScreen = () => {
         visible={isCollectionDateDialogVisible}
         onClose={handleCollectionDateDialogClose}
         onConfirm={handleCollectionDateDialogConfirm}
+      />
+      <BluetoothConfig
+        visible={isBluetoothConfigVisible}
+        onClose={() => setBluetoothConfigVisible(false)}
       />
     </View>
   );
