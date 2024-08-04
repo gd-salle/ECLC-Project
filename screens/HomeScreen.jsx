@@ -10,7 +10,8 @@ import CollectionDateDialog from '../components/CollectionDateDialog';
 import BluetoothConfig from '../components/BluetoothConfig';
 import { handleImport } from '../services/FileService';
 import { getConsultantInfo, getAdmin, getConsultant } from '../services/UserService';
-import { fetchAllPeriods, fetchLatestPeriodDate, fetchLatestPeriodID, exportCollectibles, fetchAllCollectibles } from '../services/CollectiblesServices';
+import { fetchAllPeriods, fetchLatestPeriodDate, fetchLatestPeriodID, fetchAllCollectibles } from '../services/CollectiblesServices';
+import { exportCollectibles } from '../services/FileService';
 import { isBluetoothEnabled, getConnectionStatus } from '../services/BluetoothService';
 
 const HomeScreen = () => {

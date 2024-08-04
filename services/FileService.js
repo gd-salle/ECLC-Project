@@ -1,8 +1,11 @@
 import { openDatabase } from "./Database";
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
-import { Alert } from 'react-native';
+import { Alert, Platform} from 'react-native';
 import { storePeriodDate } from './CollectiblesServices';
+import { getConsultantInfo } from './UserService';
+import * as Sharing from 'expo-sharing';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Function to insert collectibles data into the database
 export const insertCollectiblesIntoDatabase = async (entry) => {
@@ -107,3 +110,107 @@ const processCSVContent = async (content, selectedCollectionDate, periodID) => {
   Alert.alert('Success', 'Collectibles Successfully Imported');
 };
 
+
+export const exportCollectibles = async (periodId) => {
+  try {
+    const db = await openDatabase();
+    const consultantInfo = await getConsultantInfo();
+    if (!consultantInfo) throw new Error('Consultant information not found');
+
+    const { name: consultantName } = consultantInfo;
+    const formattedDate = getFormattedDate();
+
+    await checkUnprintedCollectibles(db, periodId);
+
+    const collectibles = await getCollectiblesData(db, periodId);
+    const csvContent = convertToCSV(collectibles);
+
+    const fileName = `${consultantName}_${formattedDate}.csv`.replace(/[/]/g, '-');
+    const fileUri = FileSystem.documentDirectory + fileName;
+
+    await saveCSVToFile(fileUri, csvContent, fileName);
+
+    await markPeriodAsExported(db, periodId);
+
+    console.log(`Period with ID ${periodId} marked as exported.`);
+  } catch (error) {
+    console.error('Error exporting collectibles:', error);
+    throw error;
+  }
+};
+
+const getFormattedDate = () => {
+  const date = new Date();
+  return `${date.getMonth() + 1}-${date.getDate()}-${date.getFullYear()}`;
+};
+
+const checkUnprintedCollectibles = async (db, periodId) => {
+  const unprintedCollectibles = await db.getAllAsync(`
+    SELECT account_number FROM collectibles
+    WHERE period_id = ? AND is_printed = 0
+  `, [periodId]);
+
+  if (unprintedCollectibles.length > 0) {
+    console.log('Not all collectibles are printed. Export aborted.');
+    throw new Error('Not all collectibles are printed. Export aborted.');
+  }
+};
+
+const getCollectiblesData = async (db, periodId) => {
+  return await db.getAllAsync(`
+    SELECT * FROM collectibles
+    WHERE period_id = ?
+  `, [periodId]);
+};
+
+const convertToCSV = (collectibles) => {
+  const csvHeaders = 'account_number,name,remaining_balance,due_date,payment_type,cheque_number,amount_paid,daily_due,creditors_name\n';
+  const csvRows = collectibles.map(c => 
+    `${c.account_number},${c.name},${c.remaining_balance},${c.due_date},${c.payment_type},${c.cheque_number},${c.amount_paid},${c.daily_due},${c.creditors_name}`
+  );
+  return csvHeaders + csvRows.join('\n');
+};
+
+const saveCSVToFile = async (fileUri, csvContent, fileName) => {
+  try {
+    await FileSystem.writeAsStringAsync(fileUri, csvContent, { encoding: FileSystem.EncodingType.UTF8 });
+    await save(fileUri, fileName, 'text/csv');
+  } catch (error) {
+    console.error('Error saving CSV to file:', error);
+    throw error;
+  }
+};
+
+const shareCSVFile = async (fileUri) => {
+  await Sharing.shareAsync(fileUri, {
+    mimeType: 'text/csv',
+    dialogTitle: 'Share CSV File',
+    UTI: 'public.comma-separated-values-text'
+  });
+};
+
+const markPeriodAsExported = async (db, periodId) => {
+  await db.runAsync(`
+    UPDATE period
+    SET isExported = 1
+    WHERE period_id = ?
+  `, [periodId]);
+};
+
+const save = async (uri, filename, mimetype) => {
+  if (Platform.OS === "android") {
+    const permissions = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
+    if (permissions.granted) {
+      const base64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
+      await FileSystem.StorageAccessFramework.createFileAsync(permissions.directoryUri, filename, mimetype)
+        .then(async (uri) => {
+          await FileSystem.writeAsStringAsync(uri, base64, { encoding: FileSystem.EncodingType.Base64 });
+        })
+        .catch(e => console.log(e));
+    } else {
+      await shareCSVFile(uri);
+    }
+  } else {
+    await shareCSVFile(uri);
+  }
+};

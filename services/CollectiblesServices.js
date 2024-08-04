@@ -191,35 +191,6 @@ export const numberToWords = (num) => {
   return num === 0 ? 'Zero' : convertToWords(num);
 };
 
-export const exportCollectibles = async (periodId) => {
-  try {
-    const db = await openDatabase();
-
-    // Check if all collectibles for the given period are printed
-    const unprintedCollectibles = await db.getAllAsync(`
-      SELECT account_number FROM collectibles
-      WHERE period_id = ? AND is_printed = 0
-    `, [periodId]);
-
-    if (unprintedCollectibles.length > 0) {
-      console.log('Not all collectibles are printed. Export aborted.');
-      throw new Error('Not all collectibles are printed. Export aborted.');
-    }
-
-    // Update the period to mark as exported
-    await db.runAsync(`
-      UPDATE period
-      SET isExported = 1
-      WHERE period_id = ?
-    `, [periodId]);
-
-    console.log(`Period with ID ${periodId} marked as exported.`);
-  } catch (error) {
-    console.error('Error exporting collectibles:', error);
-    throw error;
-  }
-};
-
 export const updateCollectible = async ({
   account_number,
   period_id,

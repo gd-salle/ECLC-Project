@@ -13,12 +13,12 @@ export const openDatabase = async () => {
         'admin_accounts', 'consultant', 'period', 'collectibles'
       )
     `);
-    console.log('Tables check result:', tablesCheck);
+    // console.log('Tables check result:', tablesCheck);
     if (tablesCheck.length === 4) {
       return db;
     }
 
-    console.log('Creating tables...');
+    // console.log('Creating tables...');
     // If tables do not exist, create them
     await db.execAsync(`
       PRAGMA journal_mode = WAL;
