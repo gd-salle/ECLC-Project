@@ -1,20 +1,66 @@
-import React, { useState } from 'react';
-import { View, StyleSheet, TouchableOpacity, FlatList } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, StyleSheet, TouchableOpacity, FlatList, Alert, ActivityIndicator } from 'react-native';
 import { Modal, Text, Button } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
+import {
+  isBluetoothEnabled,
+  initializeBluetoothListeners,
+  connect,
+  unPair,
+  scanDevices,
+} from '../services/BluetoothService';
 
 const BluetoothConfig = ({ visible, onClose }) => {
-  const [connectedDevice, setConnectedDevice] = useState({ name: 'Device Name', address: '00:02:5B:B3:BF:4D' });
-  const [bluetoothDevices, setBluetoothDevices] = useState([
-    { name: 'Device Name', address: '01:1A:6B:B3:BF:4D' },
-    { name: 'Device Name', address: '01:1A:6B:B3:BF:4D' },
-    { name: 'Device Name', address: '01:1A:6B:B3:BF:4D' },
-  ]);
-  const [nearbyDevices, setNearbyDevices] = useState([
-    { name: 'Device Name', address: '01:1A:6B:B3:BF:4D' },
-    { name: 'Device Name', address: '01:1A:6B:B3:BF:4D' },
-    { name: 'Device Name', address: '01:1A:6B:B3:BF:4D' },
-  ]);
+  const [connectedDevice, setConnectedDevice] = useState(null);
+  const [bluetoothDevices, setBluetoothDevices] = useState([]);
+  const [nearbyDevices, setNearbyDevices] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [scanning, setScanning] = useState(false);
+
+  useEffect(() => {
+    const checkBluetooth = async () => {
+      const enabled = await isBluetoothEnabled();
+      if (!enabled) {
+        Alert.alert('Bluetooth is not enabled');
+      } else {
+        initializeBluetoothListeners(setConnectedDevice, setBluetoothDevices, setNearbyDevices);
+        scanForDevices();
+      }
+    };
+
+    if (visible) {
+      checkBluetooth();
+    } else {
+      // Stop any scanning operation when the modal is closed
+      if (scanning) {
+        setScanning(false);
+        setLoading(false);
+      }
+    }
+
+    return () => {
+      if (scanning) {
+        setScanning(false);
+        setLoading(false);
+      }
+    };
+  }, [visible]);
+
+  const scanForDevices = async () => {
+    setScanning(true);
+    await scanDevices(setLoading, setNearbyDevices);
+    setScanning(false);
+  };
+
+  const handleConnect = async (device) => {
+    await connect(device, setLoading, setConnectedDevice);
+  };
+
+  const handleDisconnect = async () => {
+    if (connectedDevice) {
+      await unPair(connectedDevice, setLoading, setConnectedDevice);
+    }
+  };
 
   const renderConnectedDeviceItem = ({ item }) => (
     <View style={styles.listItem}>
@@ -22,7 +68,7 @@ const BluetoothConfig = ({ visible, onClose }) => {
         <Text style={styles.deviceName}>{item.name}</Text>
         <Text style={styles.deviceAddress}>{item.address}</Text>
       </View>
-      <TouchableOpacity onPress={() => console.log('Disconnect')}>
+      <TouchableOpacity onPress={handleDisconnect} disabled={loading}>
         <Text style={styles.disconnect}>Disconnect</Text>
       </TouchableOpacity>
     </View>
@@ -34,7 +80,7 @@ const BluetoothConfig = ({ visible, onClose }) => {
         <Text style={styles.deviceName}>{item.name}</Text>
         <Text style={styles.deviceAddress}>{item.address}</Text>
       </View>
-      <TouchableOpacity onPress={() => console.log('Connect')}>
+      <TouchableOpacity onPress={() => handleConnect(item)}>
         <Text style={styles.connect}>Connect</Text>
       </TouchableOpacity>
     </View>
@@ -46,14 +92,19 @@ const BluetoothConfig = ({ visible, onClose }) => {
         <Text style={styles.deviceName}>{item.name}</Text>
         <Text style={styles.deviceAddress}>{item.address}</Text>
       </View>
-      <TouchableOpacity onPress={() => console.log('Pair')}>
+      <TouchableOpacity onPress={() => handleConnect(item)}>
         <Text style={styles.pair}>Pair</Text>
       </TouchableOpacity>
     </View>
   );
 
   return (
-    <Modal visible={visible} onDismiss={onClose} contentContainerStyle={styles.overlay}>
+    <Modal
+      visible={visible}
+      onDismiss={onClose}
+      contentContainerStyle={styles.overlay}
+      dismissable={false} // Prevent closing on tap outside
+    >
       <View style={styles.dialog}>
         <View style={styles.titleContainer}>
           <Text style={styles.title}>Bluetooth Active</Text>
@@ -61,16 +112,21 @@ const BluetoothConfig = ({ visible, onClose }) => {
             <Ionicons name="close" size={24} color="black" />
           </TouchableOpacity>
         </View>
-        
+
         <Text style={styles.sectionTitle}>Printer connected to the application:</Text>
-        <FlatList
-          data={[connectedDevice]}
-          renderItem={renderConnectedDeviceItem}
-          keyExtractor={(item, index) => index.toString()}
-          style={styles.list}
-        />
+        {connectedDevice ? (
+          <FlatList
+            data={[connectedDevice]}
+            renderItem={renderConnectedDeviceItem}
+            keyExtractor={(item, index) => index.toString()}
+            style={styles.list}
+          />
+        ) : (
+          <Text style={styles.noDeviceText}>No device connected</Text>
+        )}
 
         <Text style={styles.sectionTitle}>Bluetooth connected to this device:</Text>
+        {loading ? <ActivityIndicator animating={true} /> : null}
         <FlatList
           data={bluetoothDevices}
           renderItem={renderDeviceItem}
@@ -86,8 +142,14 @@ const BluetoothConfig = ({ visible, onClose }) => {
           style={styles.list}
         />
 
-        <Button mode="contained" onPress={() => console.log('Scan Devices')} style={styles.scanButton}>
-          SCAN DEVICES
+        <Button
+          mode="contained"
+          onPress={scanForDevices}
+          style={[styles.scanButton, scanning && styles.disabledButton]}
+          disabled={scanning}
+          loading={loading}
+        >
+          {scanning ? 'SCANNING...' : 'SCAN DEVICES'}
         </Button>
       </View>
     </Modal>
@@ -161,9 +223,18 @@ const styles = StyleSheet.create({
     color: '#0A154D',
     fontWeight: 'bold',
   },
+  noDeviceText: {
+    fontSize: 14,
+    color: '#0A154D',
+    textAlign: 'center',
+    marginVertical: 10,
+  },
   scanButton: {
     marginTop: 20,
     backgroundColor: '#0A154D',
+  },
+  disabledButton: {
+    backgroundColor: '#ccc',
   },
 });
 

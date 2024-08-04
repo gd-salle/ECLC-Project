@@ -1,6 +1,6 @@
 import * as SQLite from 'expo-sqlite';
 
-const databaseName = 'test1.db';
+const databaseName = 'test8.db';
 
 export const openDatabase = async () => {
   try {
@@ -48,8 +48,11 @@ export const openDatabase = async () => {
         name TEXT NOT NULL,
         remaining_balance REAL NOT NULL,
         due_date TEXT NOT NULL,
+        payment_type TEXT NOT NULL,
+        cheque_number TEXT NOT NULL,
         amount_paid REAL NOT NULL DEFAULT 0.00,
         daily_due REAL NOT NULL,
+        creditors_name TEXT NULL,
         is_printed INTEGER NOT NULL DEFAULT 0,
         period_id INTEGER NOT NULL REFERENCES period(period_id)
       );

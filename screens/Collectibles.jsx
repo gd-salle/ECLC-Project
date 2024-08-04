@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useEffect, useState, useCallback } from 'react';
+import { View, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { Appbar, Card, Paragraph, Text, Searchbar } from 'react-native-paper';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { fetchCollectibles } from '../services/CollectiblesServices';
 
 const Collectibles = () => {
@@ -10,17 +10,21 @@ const Collectibles = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredData, setFilteredData] = useState([]);
 
-  useEffect(() => {
-    const getData = async () => {
-      try {
-        const collectibles = await fetchCollectibles();
-        setData(collectibles);
-      } catch (error) {
-        console.error('Error fetching collectibles:', error);
-      }
-    };
-    getData();
-  }, []);
+  const getData = async () => {
+    try {
+      const collectibles = await fetchCollectibles();
+      setData(collectibles);
+      setFilteredData(collectibles);
+    } catch (error) {
+      console.error('Error fetching collectibles:', error);
+    }
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      getData();
+    }, [])
+  );
 
   const handleCardPress = (item) => {
     navigation.navigate('DataEntry', { item }); // Pass the selected item
@@ -47,37 +51,39 @@ const Collectibles = () => {
           value={searchQuery}
           style={styles.searchBar}
         />
-        {(searchQuery !== '' ? filteredData : data).map((item, index) => (
-          <TouchableOpacity key={index} onPress={() => handleCardPress(item)}>
-            <Card style={styles.card}>
-              <Card.Content>
-                <View style={styles.row}>
-                  <Text style={styles.title}>Account Name</Text>
-                  <Text style={styles.title}>Balance</Text>
-                </View>
-                <View style={styles.row}>
-                  <Paragraph style={styles.accountNumber}>{item.name}</Paragraph>
-                  <Paragraph style={styles.loanAmount}>₱{item.remaining_balance}</Paragraph>
-                </View>
-                <View style={styles.detailsRow}>
-                  <View style={styles.detailsColumn}>
-                    <Text style={styles.label}>Account Number</Text>
-                    <Text style={styles.dueDate}>{item.account_number}</Text>
+        <ScrollView>
+          {(searchQuery !== '' ? filteredData : data).map((item, index) => (
+            <TouchableOpacity key={index} onPress={() => handleCardPress(item)}>
+              <Card style={styles.card}>
+                <Card.Content>
+                  <View style={styles.row}>
+                    <Text style={styles.title}>Account Name</Text>
+                    <Text style={styles.title}>Balance</Text>
                   </View>
+                  <View style={styles.row}>
+                    <Paragraph style={styles.accountNumber}>{item.name}</Paragraph>
+                    <Paragraph style={styles.loanAmount}>₱{item.remaining_balance}</Paragraph>
+                  </View>
+                  <View style={styles.detailsRow}>
+                    <View style={styles.detailsColumn}>
+                      <Text style={styles.label}>Account Number</Text>
+                      <Text style={styles.dueDate}>{item.account_number}</Text>
+                    </View>
 
-                  <View style={styles.detailsColumn}>
-                    <Text style={styles.label}>Due Date</Text>
-                    <Text style={styles.dueDate}>{item.due_date}</Text>
-                  </View>
+                    <View style={styles.detailsColumn}>
+                      <Text style={styles.label}>Due Date</Text>
+                      <Text style={styles.dueDate}>{item.due_date}</Text>
+                    </View>
 
-                  <View style={styles.detailsColumn}>
-                    {/* Placeholder for potential future use */}
+                    <View style={styles.detailsColumn}>
+                      {/* Placeholder for potential future use */}
+                    </View>
                   </View>
-                </View>
-              </Card.Content>
-            </Card>
-          </TouchableOpacity>
-        ))}
+                </Card.Content>
+              </Card>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
       </View>
     </View>
   );

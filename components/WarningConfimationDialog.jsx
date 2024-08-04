@@ -14,19 +14,20 @@ const WarningConfirmationDialog = ({ visible, onConfirm, onCancel, onClose }) =>
             <Text style={styles.icon}>!</Text>
           </View>
           <Text style={styles.title}>Warning</Text>
-          <Text style={styles.message}>Are you absolutely sure you want to submit this data?</Text>
+          <Text style={styles.message}>Are you absolutely sure you want to print the receipt?</Text>
           <Text style={styles.subMessage}>This action is irreversible. Please ensure that all information is accurate and complete.</Text>
           <View style={styles.buttonContainer}>
             <TouchableOpacity style={[styles.button, styles.cancelButton]} onPress={onCancel}>
               <Text style={styles.buttonTextCancel}>CANCEL</Text>
             </TouchableOpacity>
             <TouchableOpacity style={[styles.button, styles.confirmButton]} onPress={onConfirm}>
-              <Text style={styles.buttonTextConfirm}>CONFIRM</Text>
+              <Text style={styles.buttonTextConfirm}>PRINT</Text>
             </TouchableOpacity>
           </View>
         </View>
       </View>
     </Modal>
+    
   );
 };
 

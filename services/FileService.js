@@ -8,10 +8,10 @@ import { storePeriodDate } from './CollectiblesServices';
 export const insertCollectiblesIntoDatabase = async (entry) => {
   try {
     const db = await openDatabase();
-    const { account_number, name, remaining_balance, due_date, amount_paid, daily_due, is_printed, period_id } = entry;
+    const { account_number, name, remaining_balance, due_date, payment_type, cheque_number, amount_paid, daily_due, creditors_name, is_printed, period_id } = entry;
     await db.runAsync(
-      'INSERT OR IGNORE INTO collectibles (account_number, name, remaining_balance, due_date, amount_paid, daily_due, is_printed, period_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      [account_number, name, parseFloat(remaining_balance), due_date, parseFloat(amount_paid), parseFloat(daily_due), is_printed, period_id]
+      'INSERT OR IGNORE INTO collectibles (account_number, name, remaining_balance, due_date, payment_type, cheque_number, amount_paid, daily_due, creditors_name, is_printed, period_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [account_number, name, parseFloat(remaining_balance), due_date, parseFloat(amount_paid), payment_type, cheque_number,parseFloat(daily_due), creditors_name, is_printed, period_id]
     );
   } catch (error) {
     console.error('Error inserting collectibles data into the database:', error);
@@ -23,7 +23,7 @@ export const handleImport = async (selectedCollectionDate) => {
   console.log('Starting handleImport');
   
   const result = await DocumentPicker.getDocumentAsync({
-    type: 'text/comma-separated-values',
+    type: 'text/csv',
     copyToCacheDirectory: true
   });
 
@@ -69,8 +69,8 @@ export const handleImport = async (selectedCollectionDate) => {
 
 const processCSVContent = async (content, selectedCollectionDate, periodID) => {
   const requiredHeaders = [
-    'account_number', 'name', 'remaining_balance', 'due_date',
-    'amount_paid', 'daily_due', 'is_printed', 'period_id'
+    'account_number', 'name', 'remaining_balance', 'due_date', 'payment_type', 'cheque_number', 
+    'amount_paid', 'daily_due', 'creditors_name'
   ];
 
   const rows = content.split('\n').map(row => row.trim()).filter(row => row.length > 0);
@@ -90,18 +90,20 @@ const processCSVContent = async (content, selectedCollectionDate, periodID) => {
 
   const data = rows.slice(1).map(row => {
     const values = row.split(',').map(value => value.trim());
-    return headers.reduce((obj, header, index) => {
+    const entry = headers.reduce((obj, header, index) => {
       obj[header] = values[index];
       return obj;
     }, {});
+    // Add the period_id to each entry
+    entry['period_id'] = periodID;
+    entry['is_printed'] = 0; // Default value for is_printed
+    return entry;
   });
 
   for (const entry of data) {
-    if (entry['period_id'] === '0') {
-      entry['period_id'] = periodID.toString();
-    }
     await insertCollectiblesIntoDatabase(entry);
   }
 
   Alert.alert('Success', 'Collectibles Successfully Imported');
 };
+

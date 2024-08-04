@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, Text, Image, Alert, Platform } from 'react-native';
 import { Button, TextInput } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
-import AuthDialog from '../components/AutheticationDialog'
+import AuthDialog from '../components/AutheticationDialog';
 import AdminToolsDialog from '../components/AdminToolsDialog';
 import AccountCreationDialog from '../components/AccountCreationDialog';
 import ExportConfirmationDialog from '../components/ExportConfirmationDialog';
@@ -10,8 +10,8 @@ import CollectionDateDialog from '../components/CollectionDateDialog';
 import BluetoothConfig from '../components/BluetoothConfig';
 import { handleImport } from '../services/FileService';
 import { getConsultantInfo } from '../services/UserService';
-import { fetchAllPeriods, fetchLatestPeriodDate, fetchLatestPeriodID, exportCollectibles } from '../services/CollectiblesServices';
-import { isBluetoothEnabled } from '../services/BluetoothService';
+import { fetchAllPeriods, fetchLatestPeriodDate, fetchLatestPeriodID, exportCollectibles, fetchAllCollectibles } from '../services/CollectiblesServices';
+import { isBluetoothEnabled, getConnectionStatus } from '../services/BluetoothService';
 
 const HomeScreen = () => {
   const [consultant, setConsultant] = useState('');
@@ -23,8 +23,8 @@ const HomeScreen = () => {
   const [isExportConfirmationVisible, setExportConfirmationVisible] = useState(false);
   const [isAccountCreationVisible, setAccountCreationVisible] = useState(false);
   const [isCollectionDateDialogVisible, setCollectionDateDialogVisible] = useState(false);
-  const [isBluetoothConfigVisible, setBluetoothConfigVisible] = useState(false);
   const [pendingAction, setPendingAction] = useState(() => {});
+  const [isBluetoothConfigVisible, setBluetoothConfigVisible] = useState(false);
 
   const navigation = useNavigation();
 
@@ -42,6 +42,8 @@ const HomeScreen = () => {
           'Please enable Bluetooth to use this app.',
           [{ text: 'OK' }]
         );
+      } else {
+        setBluetoothConfigVisible(true); // Show the BluetoothConfig modal if Bluetooth is enabled
       }
     };
 
@@ -80,14 +82,14 @@ const HomeScreen = () => {
   const handleTest = async () => {
     try {
       const periodData = await fetchAllPeriods();
+      const isConnected = getConnectionStatus();
+      const collectibles = await fetchAllCollectibles();
+      console.log('Collectibles:', collectibles);
       console.log('Period Data:', periodData);
+      console.log('Status', isConnected);
     } catch (error) {
       console.error('Error fetching period data:', error);
     }
-  }
-
-  const handleShowBluetoothConfig = () => {
-    setBluetoothConfigVisible(true);
   };
 
   const handleAdminTools = () => {
@@ -228,14 +230,14 @@ const HomeScreen = () => {
         TEST
       </Button>
 
-      <Button
+      {/* <Button
         mode="outlined"
         onPress={handleShowBluetoothConfig}
         style={styles.adminButton}
         labelStyle={styles.adminButtonText}
       >
         SHOW BLUETOOTH CONFIG
-      </Button>
+      </Button> */}
 
       <AuthDialog 
         visible={isDialogVisible} 

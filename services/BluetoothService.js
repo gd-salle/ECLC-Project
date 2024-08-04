@@ -9,6 +9,17 @@ import {
 } from "react-native";
 import { PERMISSIONS, requestMultiple, RESULTS } from "react-native-permissions";
 
+let isBluetootDeviceConnected = false;
+
+// Method to check if a Bluetooth device is connected
+export const setConnectionStatus = (status) => {
+  isBluetootDeviceConnected = status;
+};
+
+export const getConnectionStatus = () => {
+  return isBluetootDeviceConnected;
+};
+
 // Method to check if Bluetooth is enabled
 export const isBluetoothEnabled = async () => {
   try {
@@ -47,16 +58,15 @@ export const isBluetoothEnabled = async () => {
 };
 
 // Method to initialize Bluetooth event listeners
-export const initializeBluetoothListeners = (pairedDevices, setPairedDevices, setFoundDs, setName, setBoundAddress) => {
+export const initializeBluetoothListeners = (setConnectedDevice, setBluetoothDevices, setNearbyDevices) => {
   const bluetoothEventEmitter = Platform.OS === "ios"
     ? new NativeEventEmitter(BluetoothManager)
     : DeviceEventEmitter;
 
-  bluetoothEventEmitter.addListener(BluetoothManager.EVENT_DEVICE_ALREADY_PAIRED, (rsp) => deviceAlreadyPaired(rsp, pairedDevices, setPairedDevices));
-  bluetoothEventEmitter.addListener(BluetoothManager.EVENT_DEVICE_FOUND, (rsp) => deviceFoundEvent(rsp, setFoundDs));
+  bluetoothEventEmitter.addListener(BluetoothManager.EVENT_DEVICE_ALREADY_PAIRED, (rsp) => deviceAlreadyPaired(rsp, setBluetoothDevices));
+  bluetoothEventEmitter.addListener(BluetoothManager.EVENT_DEVICE_FOUND, (rsp) => deviceFoundEvent(rsp, setNearbyDevices));
   bluetoothEventEmitter.addListener(BluetoothManager.EVENT_CONNECTION_LOST, () => {
-    setName("");
-    setBoundAddress("");
+    setConnectedDevice(null);
   });
 
   if (Platform.OS === "android") {
@@ -67,7 +77,7 @@ export const initializeBluetoothListeners = (pairedDevices, setPairedDevices, se
 };
 
 // Method to handle already paired devices
-export const deviceAlreadyPaired = (rsp, pairedDevices, setPairedDevices) => {
+export const deviceAlreadyPaired = (rsp, setBluetoothDevices) => {
   let ds = null;
   if (typeof rsp.devices === "object") {
     ds = rsp.devices;
@@ -77,16 +87,12 @@ export const deviceAlreadyPaired = (rsp, pairedDevices, setPairedDevices) => {
     } catch (e) {}
   }
   if (ds && ds.length) {
-    let pared = pairedDevices;
-    if (pared.length < 1) {
-      pared = pared.concat(ds || []);
-    }
-    setPairedDevices(pared);
+    setBluetoothDevices(ds);
   }
 };
 
 // Method to handle found devices
-export const deviceFoundEvent = (rsp, setFoundDs) => {
+export const deviceFoundEvent = (rsp, setNearbyDevices) => {
   let r = null;
   try {
     if (typeof rsp.device === "object") {
@@ -97,42 +103,33 @@ export const deviceFoundEvent = (rsp, setFoundDs) => {
   } catch (e) {}
 
   if (r) {
-    setFoundDs((foundDs) => {
-      let found = foundDs || [];
-      if (found.findIndex) {
-        let duplicated = found.findIndex((x) => x.address == r.address);
-        if (duplicated == -1) {
-          found.push(r);
-        }
-      }
-      return found;
-    });
+    setNearbyDevices((prevDevices) => [...prevDevices, r]);
   }
 };
 
 // Method to connect to a Bluetooth device
-export const connect = async (row, setLoading, setBoundAddress, setName) => {
+export const connect = async (device, setLoading, setConnectedDevice) => {
   try {
     setLoading(true);
-    await BluetoothManager.connect(row.address);
+    await BluetoothManager.connect(device.address);
     setLoading(false);
-    setBoundAddress(row.address);
-    setName(row.name || 'UNKNOWN');
-    console.log('Connected to device:', row);
+    setConnectedDevice(device);
+    console.log('Connected to device:', device);
+    setConnectionStatus(true)
   } catch (e) {
     setLoading(false);
     Alert.alert(e);
+    setConnectionStatus(false);
   }
 };
 
 // Method to unpair a Bluetooth device
-export const unPair = async (address, setLoading, setBoundAddress, setName) => {
+export const unPair = async (device, setLoading, setConnectedDevice) => {
   setLoading(true);
   try {
-    await BluetoothManager.unpaire(address);
+    await BluetoothManager.unpaire(device.address);
     setLoading(false);
-    setBoundAddress("");
-    setName("");
+    setConnectedDevice(null);
   } catch (e) {
     setLoading(false);
     Alert.alert(e);
@@ -140,8 +137,9 @@ export const unPair = async (address, setLoading, setBoundAddress, setName) => {
 };
 
 // Method to scan for Bluetooth devices
-export const scanDevices = async (setLoading, setFoundDs) => {
+export const scanDevices = async (setLoading, setNearbyDevices) => {
   setLoading(true);
+  setNearbyDevices([]);
   try {
     const s = await BluetoothManager.scanDevices();
     let found = s.found;
@@ -149,7 +147,7 @@ export const scanDevices = async (setLoading, setFoundDs) => {
       found = JSON.parse(found);
     } catch (e) {}
     if (found && found.length) {
-      setFoundDs(found);
+      setNearbyDevices(found);
     }
     setLoading(false);
   } catch (err) {
@@ -159,7 +157,8 @@ export const scanDevices = async (setLoading, setFoundDs) => {
 };
 
 // Method to scan for Bluetooth devices with permissions
-export const scan = async (scanDevices) => {
+export const scan = async (setLoading, scanDevices) => {
+  setLoading(true);
   try {
     const permissions = {
       title: "Bluetooth permissions",
@@ -182,7 +181,9 @@ export const scan = async (scanDevices) => {
         await scanDevices();
       }
     }
+    setLoading(false);
   } catch (err) {
+    setLoading(false);
     console.warn(err);
   }
 };

@@ -1,7 +1,6 @@
 // import React from 'react';
 // import { Button, StyleSheet, Text, View } from 'react-native';
 // import { BluetoothEscposPrinter } from 'react-native-bluetooth-escpos-printer';
-// import { hsdLogo } from '../styles/dummy-logo';
 
 // async function printreciept() {
 //   const columnWidths = [24, 24];

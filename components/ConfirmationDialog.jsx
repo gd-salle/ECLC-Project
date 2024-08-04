@@ -1,23 +1,11 @@
 import React, { useState } from 'react';
 import { StyleSheet, View, Text, Modal } from 'react-native';
 import { Button } from 'react-native-paper';
-import WarningConfirmationDialog from './WarningConfimationDialog';
 
 const ConfirmationDialog = ({ visible, onConfirm, onCancel, onClose }) => {
-  const [warningVisible, setWarningVisible] = useState(false);
 
   const handleConfirm = () => {
-    onClose(); // Close the current dialog
-    setWarningVisible(true); // Open the warning dialog
-  };
-
-  const handleWarningConfirm = () => {
-    setWarningVisible(false);
     onConfirm();
-  };
-
-  const handleWarningCancel = () => {
-    setWarningVisible(false);
   };
 
   return (
@@ -31,11 +19,11 @@ const ConfirmationDialog = ({ visible, onConfirm, onCancel, onClose }) => {
           <View style={styles.dialog}>
             <View style={styles.titleContainer}>
               <View style={styles.verticalLine} />
-              <Text style={styles.title}>Do you wish to continue?</Text>
+              <Text style={styles.title}>Do you wish to continue printing the receipt?</Text>
             </View>
             <Text style={styles.subtitle}>
               Please review the information carefully before proceeding.
-              Once submitted, this data cannot be modified.
+              Once printed, this data cannot be modified.
             </Text>
 
             <View style={styles.buttonContainer}>
@@ -49,7 +37,9 @@ const ConfirmationDialog = ({ visible, onConfirm, onCancel, onClose }) => {
               </Button>
               <Button
                 mode="contained"
-                onPress={handleConfirm}
+                onPress={() => {
+                  handleConfirm();
+                }}
                 style={styles.confirmButton}
                 labelStyle={styles.buttonTextConfirm}
               >
@@ -59,13 +49,6 @@ const ConfirmationDialog = ({ visible, onConfirm, onCancel, onClose }) => {
           </View>
         </View>
       </Modal>
-
-      <WarningConfirmationDialog
-        visible={warningVisible}
-        onConfirm={handleWarningConfirm}
-        onCancel={handleWarningCancel}
-        onClose={handleWarningCancel}
-      />
     </>
   );
 };

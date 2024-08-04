@@ -3,7 +3,11 @@ import { View, StyleSheet, ScrollView, Alert } from 'react-native';
 import { Appbar, Card, Text, TextInput, Checkbox, Button, Divider } from 'react-native-paper';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import ConfirmationDialog from '../components/ConfirmationDialog';
-import { fetchPeriodDateById, numberToWords } from '../services/CollectiblesServices';
+import WarningConfirmationDialog from '../components/WarningConfimationDialog';
+import { fetchPeriodDateById, numberToWords, updateCollectible } from '../services/CollectiblesServices';
+import { printReceipt } from '../services/PrintService';
+import { getConnectionStatus } from '../services/BluetoothService';
+import BluetoothConfig from '../components/BluetoothConfig';
 
 const DataEntry = () => {
   const route = useRoute();
@@ -17,9 +21,12 @@ const DataEntry = () => {
   const [amountPaid, setAmountPaid] = useState('');
   const [sumOf, setSumOf] = useState('');
   const [creditorsName, setCreditorsName] = useState('');
-  const [dialogVisible, setDialogVisible] = useState(false);
+  const [confirmationDialogVisible, setConfirmationDialogVisible] = useState(false);
+  const [warningDialogVisible, setWarningDialogVisible] = useState(false);
   const [periodDate, setPeriodDate] = useState(null);
   const [errors, setErrors] = useState({});
+  const [confirmData, setConfirmData] = useState({});
+  const [isBluetoothConfigVisible, setBluetoothConfigVisible] = useState(false);
 
   useEffect(() => {
     const fetchPeriodDate = async () => {
@@ -69,24 +76,43 @@ const DataEntry = () => {
     return valid;
   };
 
-  const handleConfirm = () => {
+  const handleOpenDialog = () => {
     if (validateForm()) {
-      setDialogVisible(false);
-      // Handle the confirm action
+      setConfirmData({
+        account_number: item.account_number,
+        period_id: item.period_id,
+        payment_type: selectedPaymentMethod,
+        cheque_number: chequeNumber,
+        amount_paid: amountPaid,
+        creditors_name: creditorsName,
+      });
+      setConfirmationDialogVisible(true);
     } else {
       Alert.alert('Validation Error', 'Please fill in all required fields.');
     }
   };
 
-  const handleCancel = () => {
-    setDialogVisible(false);
+  const handleConfirm = () => {
+    setConfirmationDialogVisible(false);
+    setWarningDialogVisible(true);
   };
-
-  const handleOpenDialog = () => {
-    if (validateForm()) {
-      setDialogVisible(true);
-    } else {
-      Alert.alert('Validation Error', 'Please fill in all required fields.');
+  const bluetoothStatus = getConnectionStatus();
+  const handleWarningConfirm = async () => {
+    setWarningDialogVisible(false);
+    try {
+      if (bluetoothStatus) {
+        console.log(bluetoothStatus)
+        navigation.navigate('Collectibles');
+        handlePrintReceipt();
+        await updateCollectible(confirmData);
+        Alert.alert('Success', 'Printed successfully.');
+      } else {
+        Alert.alert('Please connect to Bluetooth Printer', 'No bluetooth printer connected.');
+        setBluetoothConfigVisible(true);  
+      }
+    } catch (error) {
+      Alert.alert('Error', 'No bluetooth printer connected.');
+      // console.error('Failed to print:', error);
     }
   };
 
@@ -100,6 +126,24 @@ const DataEntry = () => {
     }
   };
 
+  const handlePrintReceipt = async () => {
+    const dataToPrint = {
+      account_number: item.account_number,
+      name: item.name,
+      remaining_balance: item.remaining_balance,
+      payment_type: selectedPaymentMethod,
+      cheque_number: chequeNumber,
+      amount_paid: amountPaid,
+      daily_due: item.daily_due,
+    };
+
+    try {
+      await printReceipt(dataToPrint);
+    } catch (error) {
+      console.error('Error printing receipt:', error);
+    }
+  };
+  
   return (
     <View style={{ flex: 1 }}>
       <Appbar.Header>
@@ -109,29 +153,29 @@ const DataEntry = () => {
       
       <ScrollView contentContainerStyle={styles.container}>
         <View>
-            <Card style={styles.card}>
-              <Card.Content>
-                <View style={styles.row}>
-                  <Text style={styles.label}>Account Number</Text>
-                  <Text style={styles.label}>Balance</Text>
-                </View>
-                <View style={styles.row}>
-                  <Text style={styles.accountNumber}>{item.account_number}</Text>
-                  <Text style={styles.loanAmount}>₱ {item.remaining_balance}</Text>
-                </View>
-                <Divider style={{ padding: 2, marginTop: 5, marginBottom: 1 }} />
-                <View style={styles.row}>
-                  <Text style={styles.label}>Account Name</Text>
-                  <Text style={styles.label}>Daily Due</Text>
-                </View>
-                <View style={styles.row}>
-                  <Text style={styles.agentName}>{item.name}</Text>
-                  <Text style={styles.value}>₱ {item.daily_due}</Text>
-                </View>
-                <Text style={styles.label}>Due Date</Text>
-                <Text style={styles.value}>{item.due_date}</Text>
-              </Card.Content>
-            </Card>
+          <Card style={styles.card}>
+            <Card.Content>
+              <View style={styles.row}>
+                <Text style={styles.label}>Account Number</Text>
+                <Text style={styles.label}>Balance</Text>
+              </View>
+              <View style={styles.row}>
+                <Text style={styles.accountNumber}>{item.account_number}</Text>
+                <Text style={styles.loanAmount}>₱ {item.remaining_balance}</Text>
+              </View>
+              <Divider style={{ padding: 2, marginTop: 5, marginBottom: 1 }} />
+              <View style={styles.row}>
+                <Text style={styles.label}>Account Name</Text>
+                <Text style={styles.label}>Daily Due</Text>
+              </View>
+              <View style={styles.row}>
+                <Text style={styles.agentName}>{item.name}</Text>
+                <Text style={styles.value}>₱ {item.daily_due}</Text>
+              </View>
+              <Text style={styles.label}>Due Date</Text>
+              <Text style={styles.value}>{item.due_date}</Text>
+            </Card.Content>
+          </Card>
         </View>
         
         <Text style={styles.label}>Form of Payment</Text>
@@ -215,16 +259,30 @@ const DataEntry = () => {
         ) : null}
 
         <ConfirmationDialog
-          visible={dialogVisible}
+          visible={confirmationDialogVisible}
           onConfirm={handleConfirm}
-          onCancel={handleCancel}
-          onClose={handleCancel}
+          onCancel={() => setConfirmationDialogVisible(false)}
+          onClose={() => setConfirmationDialogVisible(false)}
+          data={confirmData}
+        />
+
+        <WarningConfirmationDialog
+          visible={warningDialogVisible}
+          onConfirm={handleWarningConfirm}
+          onCancel={() => setWarningDialogVisible(false)}
+          onClose={() => setWarningDialogVisible(false)}
+          data={confirmData}
         />
       </ScrollView>
 
       <Button mode="contained" style={styles.button} onPress={handleOpenDialog}>
         PRINT RECEIPT
       </Button>
+
+      <BluetoothConfig
+        visible={isBluetoothConfigVisible}
+        onClose={() => setBluetoothConfigVisible(false)}
+      />
     </View>
   );
 };

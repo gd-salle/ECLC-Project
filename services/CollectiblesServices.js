@@ -1,7 +1,7 @@
 import { openDatabase } from './Database';
 // import * as SQLite from 'expo-sqlite';
 
-const fetchCollectibles = async () => {
+export const fetchCollectibles = async () => {
     try {
         const db = await openDatabase();
         const allRows = await db.getAllAsync('SELECT * FROM collectibles c JOIN period p ON c.period_id = p.period_id WHERE c.is_printed = 0 AND p.isExported = 0');
@@ -12,8 +12,11 @@ const fetchCollectibles = async () => {
             name: row.name,
             remaining_balance: row.remaining_balance,
             due_date: row.due_date,
+            payment_type: row.payment_type,
+            cheque_number: row.cheque_number,
             amount_paid: row.amount_paid,
             daily_due: row.daily_due,
+            creditors_name: row.creditors_name,
             is_printed: row.is_printed,
             period_id: row.period_id,
         }));
@@ -26,7 +29,35 @@ const fetchCollectibles = async () => {
     }
 };
 
-const storePeriodDate = async (date) => {
+export const fetchAllCollectibles = async () => {
+    try {
+        const db = await openDatabase();
+        const allRows = await db.getAllAsync('SELECT * FROM collectibles');
+
+        // Map the rows from the database to your Collectibles object
+        const collectibles = allRows.map(row => ({
+            account_number: row.account_number,
+            name: row.name,
+            remaining_balance: row.remaining_balance,
+            due_date: row.due_date,
+            payment_type: row.payment_type,
+            cheque_number: row.cheque_number,
+            amount_paid: row.amount_paid,
+            daily_due: row.daily_due,
+            creditors_name: row.creditors_name,
+            is_printed: row.is_printed,
+            period_id: row.period_id,
+        }));
+
+        return collectibles;
+
+    } catch (error) {
+        console.error('Error fetching collectibles:', error);
+        throw error;
+    }
+};
+
+export const storePeriodDate = async (date) => {
   try {
     const db = await openDatabase();
     await db.runAsync(`
@@ -52,7 +83,7 @@ const storePeriodDate = async (date) => {
   }
 };
 
-const fetchAllPeriods = async () => {
+export const fetchAllPeriods = async () => {
   try {
     const db = await openDatabase();
     const result = await db.getAllAsync(`
@@ -65,7 +96,7 @@ const fetchAllPeriods = async () => {
   }
 };
 
-const fetchLatestPeriodID = async () => {
+export const fetchLatestPeriodID = async () => {
     try {
       const db = await openDatabase();
       const result = await db.getFirstAsync(`
@@ -80,7 +111,7 @@ const fetchLatestPeriodID = async () => {
     }
 };
 
-const fetchLatestPeriodDate = async () => {
+export const fetchLatestPeriodDate = async () => {
   try {
     const db = await openDatabase();
     const result = await db.getFirstAsync(`
@@ -95,7 +126,7 @@ const fetchLatestPeriodDate = async () => {
   }
 };
 
-const fetchPeriodDateById = async (periodId) => {
+export const fetchPeriodDateById = async (periodId) => {
   try {
     const db = await openDatabase();
     const result = await db.getFirstAsync(`
@@ -109,7 +140,7 @@ const fetchPeriodDateById = async (periodId) => {
   }
 };
 
-const numberToWords = (num) => {
+export const numberToWords = (num) => {
   const a = [
     '', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten',
     'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'
@@ -160,7 +191,7 @@ const numberToWords = (num) => {
   return num === 0 ? 'Zero' : convertToWords(num);
 };
 
-const exportCollectibles = async (periodId) => {
+export const exportCollectibles = async (periodId) => {
   try {
     const db = await openDatabase();
 
@@ -189,13 +220,31 @@ const exportCollectibles = async (periodId) => {
   }
 };
 
-export {
-  fetchCollectibles,
-  storePeriodDate,
-  fetchAllPeriods,
-  fetchLatestPeriodID,
-  fetchLatestPeriodDate,
-  fetchPeriodDateById,
-  numberToWords,
-  exportCollectibles
+export const updateCollectible = async ({
+  account_number,
+  period_id,
+  payment_type,
+  cheque_number,
+  amount_paid,
+  creditors_name
+}) => {
+  try {
+    const db = await openDatabase();
+
+    await db.runAsync(`
+      UPDATE collectibles
+      SET 
+        payment_type = ?,
+        cheque_number = ?,
+        amount_paid = ?,
+        creditors_name = ?,
+        is_printed = 1
+      WHERE account_number = ? AND period_id = ?
+    `, [payment_type, cheque_number, amount_paid, creditors_name, account_number, period_id]);
+
+    console.log('Collectible updated successfully.');
+  } catch (error) {
+    console.error('Error updating collectible:', error);
+    throw error;
+  }
 };
