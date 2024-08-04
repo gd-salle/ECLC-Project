@@ -5,7 +5,6 @@ import { Alert, Platform} from 'react-native';
 import { storePeriodDate } from './CollectiblesServices';
 import { getConsultantInfo } from './UserService';
 import * as Sharing from 'expo-sharing';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Function to insert collectibles data into the database
 export const insertCollectiblesIntoDatabase = async (entry) => {
