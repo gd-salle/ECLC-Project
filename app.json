@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "BluetoothPrinter",
-    "slug": "BluetoothPrinter",
+    "name": "ECLC APPLICATION",
+    "slug": "ECLC APPLICATION",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -19,7 +19,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.gd.slle.BluetoothPrinter"
+      "package": "com.eclc.ECLC_APPLICATIONr"
     },
     "web": {
       "favicon": "./assets/favicon.png"
