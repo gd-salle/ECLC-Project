@@ -9,7 +9,6 @@ import {
 } from 'react-native';
 import { TextInput, Button, HelperText } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
-import { getAdmin } from '../services/UserService';
 
 const AuthDialog = ({ visible, onClose, onConfirm, isConsultantAuth }) => {
   const [username, setUsername] = useState('');
@@ -51,15 +50,10 @@ const AuthDialog = ({ visible, onClose, onConfirm, isConsultantAuth }) => {
       return;
     }
 
-    const user = await getAdmin(username, password);
-    if (user) {
-      onConfirm(username, password);
-      setUsername('');
-      setPassword('');
-      onClose();
-    } else {
-      Alert.alert('Authentication Failed', 'Invalid username or password');
-      setPassword('');
+    try {
+      await onConfirm(username, password); // Call the onConfirm prop with username and password
+    } catch (error) {
+      Alert.alert('Error', 'An error occurred during authentication.');
     }
   };
 

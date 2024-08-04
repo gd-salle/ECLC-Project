@@ -9,10 +9,11 @@ import ExportConfirmationDialog from '../components/ExportConfirmationDialog';
 import CollectionDateDialog from '../components/CollectionDateDialog';
 import BluetoothConfig from '../components/BluetoothConfig';
 import { handleImport } from '../services/FileService';
-import { getConsultantInfo, getAdmin, getConsultant } from '../services/UserService';
+import { getConsultantInfo } from '../services/UserService';
 import { fetchAllPeriods, fetchLatestPeriodDate, fetchLatestPeriodID, fetchAllCollectibles } from '../services/CollectiblesServices';
 import { exportCollectibles } from '../services/FileService';
 import { isBluetoothEnabled, getConnectionStatus } from '../services/BluetoothService';
+import { getAdmin, getConsultant } from '../services/UserService';
 
 const HomeScreen = () => {
   const [consultant, setConsultant] = useState('');
@@ -102,52 +103,72 @@ const HomeScreen = () => {
     setDialogVisible(false);
   };
 
-// Inside HomeScreen.jsx
-
 const handleDialogConfirm = async (username, password) => {
   try {
-    const user = await getAdmin(username, password);
-    if (user) {
-      if (authAction === 'admin') {
-        setAdminToolsVisible(true);
-      } else if (authAction === 'consultant') {
-        navigation.navigate('Collectibles');
-      }
-    } else {
+    if (authAction === 'consultant') {
+      // Handle consultant authentication
       const consultant = await getConsultant(username, password);
-      if (consultant && authAction === 'consultant') {
+      const admin = await getAdmin(username, password);
+      if (admin) {
+        setDialogVisible(false);
+        navigation.navigate('Collectibles');
+      } else if (consultant) {
+        setDialogVisible(false);
         navigation.navigate('Collectibles');
       } else {
-        Alert.alert('Authentication Failed', 'Invalid username or password');
+        Alert.alert('Authentication Failed', 'Invalid consultant credentials.');
+      }
+    } else if (authAction === 'admin') {
+      // Handle admin authentication
+      const admin = await getAdmin(username, password);
+      if (admin) {
+        setDialogVisible(false);
+        // Proceed with admin action (e.g., show AdminTools dialog)
+        setAdminToolsVisible(true); // Or handle other admin actions
+      } else {
+        // Check if the credentials are for a consultant
+        const consultant = await getConsultant(username, password);
+        if (consultant) {
+          Alert.alert('Access Denied', 'Consultants cannot access admin features.');
+        } else {
+          Alert.alert('Authentication Failed', 'Invalid admin credentials.');
+        }
       }
     }
   } catch (error) {
-    console.error('Error during authentication:', error);
-  } finally {
-    setDialogVisible(false);
+    Alert.alert('Error', 'An error occurred during authentication.');
   }
 };
 
-  const handleExport = async () => {
-    try {
-      const latestPeriod = await fetchLatestPeriodID();
-      if (latestPeriod && latestPeriod.period_id) {
-        await exportCollectibles(latestPeriod.period_id);
-        Alert.alert('Success', `Data exported for period ID ${latestPeriod.period_id}`);
-      } else {
-        Alert.alert('Error', 'No period found to export');
-      }
-    } catch (e) {
-      let msg;
-      if (e instanceof Error) {
-        msg = e.message;
-      } else {
-        // Handle case where `e` is not an instance of Error
-        msg = 'An unknown error occurred';
-      }
-      Alert.alert('Error', msg || 'Failed to export data');
+
+const handleExport = async () => {
+  try {
+    const latestPeriod = await fetchLatestPeriodID();
+    if (!latestPeriod || !latestPeriod.period_id) {
+      Alert.alert('Error', 'No period found to export');
+      return;
     }
-  };
+
+    const status = await exportCollectibles(latestPeriod.period_id);
+
+    if (status === 'success') {
+      Alert.alert('Success', 'Collectibles exported successfully!');
+    } else if (status === 'canceled') {
+      Alert.alert('Canceled', 'Export was canceled.');
+    }
+
+  } catch (e) {
+    let msg;
+    if (e instanceof Error) {
+      msg = e.message;
+    } else {
+      // Handle case where `e` is not an instance of Error
+      msg = 'An unknown error occurred';
+    }
+    Alert.alert('Error', msg || 'Failed to export data');
+  }
+};
+
 
   const confirmExport = async () => {
     setExportConfirmationVisible(false);

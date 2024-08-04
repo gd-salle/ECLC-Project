@@ -110,7 +110,7 @@ const processCSVContent = async (content, selectedCollectionDate, periodID) => {
   Alert.alert('Success', 'Collectibles Successfully Imported');
 };
 
-
+// test
 export const exportCollectibles = async (periodId) => {
   try {
     const db = await openDatabase();
@@ -122,17 +122,28 @@ export const exportCollectibles = async (periodId) => {
 
     await checkUnprintedCollectibles(db, periodId);
 
+    const period = await getPeriodData(db, periodId);
+    if (!period) throw new Error('Period not found');
+    if (period.isExported) {
+      Alert.alert('Export Error', 'This period has already been exported.');
+      return 'already_exported';
+    }
+
     const collectibles = await getCollectiblesData(db, periodId);
     const csvContent = convertToCSV(collectibles);
 
     const fileName = `${consultantName}_${formattedDate}.csv`.replace(/[/]/g, '-');
     const fileUri = FileSystem.documentDirectory + fileName;
 
-    await saveCSVToFile(fileUri, csvContent, fileName);
+    const saveStatus = await saveCSVToFile(fileUri, csvContent, fileName);
+
+    if (saveStatus === 'canceled') {
+      return 'canceled';
+    }
 
     await markPeriodAsExported(db, periodId);
-
-    console.log(`Period with ID ${periodId} marked as exported.`);
+    // console.log(`Period with ID ${periodId} marked as exported.`);
+    return 'success';
   } catch (error) {
     console.error('Error exporting collectibles:', error);
     throw error;
@@ -156,6 +167,14 @@ const checkUnprintedCollectibles = async (db, periodId) => {
   }
 };
 
+const getPeriodData = async (db, periodId) => {
+  const periods = await db.getAllAsync(`
+    SELECT * FROM period
+    WHERE period_id = ?
+  `, [periodId]);
+  return periods.length ? periods[0] : null;
+};
+
 const getCollectiblesData = async (db, periodId) => {
   return await db.getAllAsync(`
     SELECT * FROM collectibles
@@ -174,7 +193,8 @@ const convertToCSV = (collectibles) => {
 const saveCSVToFile = async (fileUri, csvContent, fileName) => {
   try {
     await FileSystem.writeAsStringAsync(fileUri, csvContent, { encoding: FileSystem.EncodingType.UTF8 });
-    await save(fileUri, fileName, 'text/csv');
+    const saveStatus = await save(fileUri, fileName, 'text/csv');
+    return saveStatus;
   } catch (error) {
     console.error('Error saving CSV to file:', error);
     throw error;
@@ -206,11 +226,16 @@ const save = async (uri, filename, mimetype) => {
         .then(async (uri) => {
           await FileSystem.writeAsStringAsync(uri, base64, { encoding: FileSystem.EncodingType.Base64 });
         })
-        .catch(e => console.log(e));
+        .catch(e => {
+          console.log(e);
+          throw new Error('Failed to save file');
+        });
+      return 'success';
     } else {
-      await shareCSVFile(uri);
+      return 'canceled';
     }
   } else {
     await shareCSVFile(uri);
+    return 'success';
   }
 };
