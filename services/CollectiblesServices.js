@@ -1,5 +1,4 @@
 import { openDatabase } from './Database';
-// import * as SQLite from 'expo-sqlite';
 
 export const fetchCollectibles = async () => {
     try {
@@ -209,9 +208,10 @@ export const updateCollectible = async ({
         cheque_number = ?,
         amount_paid = ?,
         creditors_name = ?,
-        is_printed = 1
+        is_printed = 1,
+        remaining_balance = remaining_balance - ?
       WHERE account_number = ? AND period_id = ?
-    `, [payment_type, cheque_number, amount_paid, creditors_name, account_number, period_id]);
+    `, [payment_type, cheque_number, amount_paid, creditors_name, amount_paid, account_number, period_id]);
 
     console.log('Collectible updated successfully.');
   } catch (error) {

@@ -26,7 +26,7 @@ export const handleImport = async (selectedCollectionDate) => {
   console.log('Starting handleImport');
   
   const result = await DocumentPicker.getDocumentAsync({
-    type: 'text/csv',
+    type: ['text/csv', 'application/csv', 'text/comma-separated-values'],
     copyToCacheDirectory: true
   });
 
@@ -50,7 +50,6 @@ export const handleImport = async (selectedCollectionDate) => {
     mimetype: file.mimeType,
     size: file.size,
   };
-
   console.log('Selected file:', csvFile);
 
   // Store the date only if the user proceeds with the file
@@ -110,12 +109,15 @@ const processCSVContent = async (content, selectedCollectionDate, periodID) => {
   Alert.alert('Success', 'Collectibles Successfully Imported');
 };
 
-// test
+
 export const exportCollectibles = async (periodId) => {
   try {
     const db = await openDatabase();
     const consultantInfo = await getConsultantInfo();
-    if (!consultantInfo) throw new Error('Consultant information not found');
+    if (!consultantInfo) {
+      Alert.alert('Error', 'Consultant information not found');
+      return 'error';
+    }
 
     const { name: consultantName } = consultantInfo;
     const formattedDate = getFormattedDate();
@@ -142,7 +144,8 @@ export const exportCollectibles = async (periodId) => {
     }
 
     await markPeriodAsExported(db, periodId);
-    // console.log(`Period with ID ${periodId} marked as exported.`);
+    await deleteCollectiblesData(db, periodId);
+    await deletePeriodData(db, periodId);
     return 'success';
   } catch (error) {
     console.error('Error exporting collectibles:', error);
@@ -238,4 +241,18 @@ const save = async (uri, filename, mimetype) => {
     await shareCSVFile(uri);
     return 'success';
   }
+};
+
+const deleteCollectiblesData = async (db, periodId) => {
+  await db.runAsync(`
+    DELETE FROM collectibles
+    WHERE period_id = ?
+  `, [periodId]);
+};
+
+const deletePeriodData = async (db, periodId) => {
+  await db.runAsync(`
+    DELETE FROM period
+    WHERE period_id = ?
+  `, [periodId]);
 };

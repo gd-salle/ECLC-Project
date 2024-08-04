@@ -1,25 +1,22 @@
 import * as SQLite from 'expo-sqlite';
 
-const databaseName = 'test9.db';
+const databaseName = 'test14.db';
 
 export const openDatabase = async () => {
   try {
     const db = await SQLite.openDatabaseAsync(databaseName, { useNewConnection: true });
     console.log('Database opened successfully');
 
-    // Check if tables already exist
     const tablesCheck = await db.getAllAsync(`
       SELECT name FROM sqlite_master WHERE type='table' AND name IN (
         'admin_accounts', 'consultant', 'period', 'collectibles'
       )
     `);
-    // console.log('Tables check result:', tablesCheck);
+
     if (tablesCheck.length === 4) {
       return db;
     }
 
-    // console.log('Creating tables...');
-    // If tables do not exist, create them
     await db.execAsync(`
       PRAGMA journal_mode = WAL;
       PRAGMA foreign_keys = ON;

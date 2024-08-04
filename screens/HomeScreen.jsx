@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Text, Image, Alert, Platform } from 'react-native';
+import { StyleSheet, View, Text, Image, Alert} from 'react-native';
 import { Button, TextInput } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import AuthDialog from '../components/AutheticationDialog';
@@ -27,7 +27,7 @@ const HomeScreen = () => {
   const [isCollectionDateDialogVisible, setCollectionDateDialogVisible] = useState(false);
   const [pendingAction, setPendingAction] = useState(() => {});
   const [isBluetoothConfigVisible, setBluetoothConfigVisible] = useState(false);
-
+  const [refreshFlag, setRefreshFlag] = useState(false);
   const navigation = useNavigation();
 
   useEffect(() => {
@@ -51,7 +51,7 @@ const HomeScreen = () => {
 
     fetchData();
     checkBluetooth();
-  }, []);
+  }, [refreshFlag]);
 
   const fetchConsultantInfo = async () => {
     try {
@@ -67,9 +67,11 @@ const HomeScreen = () => {
 
   const fetchAndSetLatestPeriodDate = async () => {
     try {
-      const latestDate = await fetchLatestPeriodDate();
-      if (latestDate) {
-        setCollectionDate(latestDate || '');
+      const result = await fetchLatestPeriodDate();
+      if (result && result.isExported === 0) {
+        setCollectionDate(result.date || '');
+      } else {
+        setCollectionDate(''); // Clear the collection date if isExported is 1
       }
     } catch (error) {
       console.error('Failed to fetch latest period date:', error);
@@ -79,19 +81,6 @@ const HomeScreen = () => {
   const handleStartCollection = () => {
     setAuthAction('consultant');
     setDialogVisible(true);
-  };
-
-  const handleTest = async () => {
-    try {
-      const periodData = await fetchAllPeriods();
-      const isConnected = getConnectionStatus();
-      const collectibles = await fetchAllCollectibles();
-      console.log('Collectibles:', collectibles);
-      console.log('Period Data:', periodData);
-      console.log('Status', isConnected);
-    } catch (error) {
-      console.error('Error fetching period data:', error);
-    }
   };
 
   const handleAdminTools = () => {
@@ -106,7 +95,6 @@ const HomeScreen = () => {
 const handleDialogConfirm = async (username, password) => {
   try {
     if (authAction === 'consultant') {
-      // Handle consultant authentication
       const consultant = await getConsultant(username, password);
       const admin = await getAdmin(username, password);
       if (admin) {
@@ -123,10 +111,8 @@ const handleDialogConfirm = async (username, password) => {
       const admin = await getAdmin(username, password);
       if (admin) {
         setDialogVisible(false);
-        // Proceed with admin action (e.g., show AdminTools dialog)
-        setAdminToolsVisible(true); // Or handle other admin actions
+        setAdminToolsVisible(true);
       } else {
-        // Check if the credentials are for a consultant
         const consultant = await getConsultant(username, password);
         if (consultant) {
           Alert.alert('Access Denied', 'Consultants cannot access admin features.');
@@ -140,34 +126,33 @@ const handleDialogConfirm = async (username, password) => {
   }
 };
 
+  const handleExport = async () => {
+    try {
+      const latestPeriod = await fetchLatestPeriodID();
+      if (!latestPeriod || !latestPeriod.period_id) {
+        Alert.alert('Error', 'No period found to export');
+        return;
+      }
 
-const handleExport = async () => {
-  try {
-    const latestPeriod = await fetchLatestPeriodID();
-    if (!latestPeriod || !latestPeriod.period_id) {
-      Alert.alert('Error', 'No period found to export');
-      return;
+      const status = await exportCollectibles(latestPeriod.period_id);
+
+      if (status === 'success') {
+        Alert.alert('Success', 'Collectibles exported successfully!');
+        setRefreshFlag(prev => !prev);
+      } else if (status === 'canceled') {
+        Alert.alert('Canceled', 'Export was canceled.');
+      }
+
+    } catch (error) {
+      let msg;
+      if (error instanceof Error) {
+        msg = error.message;
+      } else {
+        msg = 'An unknown error occurred';
+      }
+      Alert.alert('Error', msg || 'Failed to export data');
     }
-
-    const status = await exportCollectibles(latestPeriod.period_id);
-
-    if (status === 'success') {
-      Alert.alert('Success', 'Collectibles exported successfully!');
-    } else if (status === 'canceled') {
-      Alert.alert('Canceled', 'Export was canceled.');
-    }
-
-  } catch (e) {
-    let msg;
-    if (e instanceof Error) {
-      msg = e.message;
-    } else {
-      // Handle case where `e` is not an instance of Error
-      msg = 'An unknown error occurred';
-    }
-    Alert.alert('Error', msg || 'Failed to export data');
-  }
-};
+  };
 
 
   const confirmExport = async () => {
@@ -259,23 +244,6 @@ const handleExport = async () => {
       >
         ADMIN TOOLS
       </Button>
-      <Button
-        mode="outlined"
-        onPress={handleTest}
-        style={styles.adminButton}
-        labelStyle={styles.adminButtonText}
-      >
-        TEST
-      </Button>
-
-      {/* <Button
-        mode="outlined"
-        onPress={handleShowBluetoothConfig}
-        style={styles.adminButton}
-        labelStyle={styles.adminButtonText}
-      >
-        SHOW BLUETOOTH CONFIG
-      </Button> */}
 
       <AuthDialog 
         visible={isDialogVisible} 

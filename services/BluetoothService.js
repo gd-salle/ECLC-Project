@@ -115,13 +115,28 @@ export const connect = async (device, setLoading, setConnectedDevice) => {
     setLoading(false);
     setConnectedDevice(device);
     console.log('Connected to device:', device);
-    setConnectionStatus(true)
+    setConnectionStatus(true);
   } catch (e) {
     setLoading(false);
-    Alert.alert(e);
+    if (e.message.includes('timeout') || e.message.includes('failed')) {
+      Alert.alert(
+        'Connection Failed',
+        'Unable to connect to the device. Please check if the device is powered on and in range. If the problem persists, try re-pairing the device or refer to the troubleshooting tips.',
+        [
+          { text: 'Troubleshoot', onPress: () => {
+              // Here you can add custom troubleshooting steps or redirect to a help page
+              Alert.alert('Troubleshooting Tips', '1. Ensure the device is turned on.\n2. Check if the device is within range.\n3. Try re-pairing the device.\n4. Restart the Bluetooth on your phone.');
+          }},
+          { text: 'OK' }
+        ]
+      );
+    } else {
+      Alert.alert('Error', 'An unexpected error occurred while connecting to the device.');
+    }
     setConnectionStatus(false);
   }
 };
+
 
 // Method to unpair a Bluetooth device
 export const unPair = async (device, setLoading, setConnectedDevice) => {
