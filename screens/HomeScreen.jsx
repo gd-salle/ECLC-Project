@@ -9,7 +9,7 @@ import ExportConfirmationDialog from '../components/ExportConfirmationDialog';
 import CollectionDateDialog from '../components/CollectionDateDialog';
 import BluetoothConfig from '../components/BluetoothConfig';
 import { handleImport } from '../services/FileService';
-import { getConsultantInfo } from '../services/UserService';
+import { getConsultantInfo, getAdmin, getConsultant } from '../services/UserService';
 import { fetchAllPeriods, fetchLatestPeriodDate, fetchLatestPeriodID, exportCollectibles, fetchAllCollectibles } from '../services/CollectiblesServices';
 import { isBluetoothEnabled, getConnectionStatus } from '../services/BluetoothService';
 
@@ -101,15 +101,31 @@ const HomeScreen = () => {
     setDialogVisible(false);
   };
 
-  const handleDialogConfirm = (username, password) => {
-    // Perform necessary actions based on authentication
-    if (authAction === 'admin') {
-      setAdminToolsVisible(true);
-    } else if (authAction === 'consultant') {
-      navigation.navigate('Collectibles');
+// Inside HomeScreen.jsx
+
+const handleDialogConfirm = async (username, password) => {
+  try {
+    const user = await getAdmin(username, password);
+    if (user) {
+      if (authAction === 'admin') {
+        setAdminToolsVisible(true);
+      } else if (authAction === 'consultant') {
+        navigation.navigate('Collectibles');
+      }
+    } else {
+      const consultant = await getConsultant(username, password);
+      if (consultant && authAction === 'consultant') {
+        navigation.navigate('Collectibles');
+      } else {
+        Alert.alert('Authentication Failed', 'Invalid username or password');
+      }
     }
+  } catch (error) {
+    console.error('Error during authentication:', error);
+  } finally {
     setDialogVisible(false);
-  };
+  }
+};
 
   const handleExport = async () => {
     try {
