@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "ECLC APPLICATION",
-    "slug": "ECLC APPLICATION",
+    "name": "ECLC_APPLICATION",
+    "slug": "ECLC_APPLICATION",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -23,6 +23,11 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "3d5dec4b-0599-4688-85e1-8c7172205f83"
+      }
     }
   }
 }
