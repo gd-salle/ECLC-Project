@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { TextInput, Button } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
-import { addConsultant } from '../services/UserService';
+import { addConsultant, getAdmin} from '../services/UserService';
 
 const AccountCreationDialog = ({ visible, onClose, onConfirm }) => {
   const [consultantName, setConsultantName] = useState('');
@@ -22,6 +22,8 @@ const AccountCreationDialog = ({ visible, onClose, onConfirm }) => {
   const [adminPasscodeError, setAdminPasscodeError] = useState('');
   const [passwordInputError, setPasswordInputError] = useState('');
   const [confirmPasswordInputError, setConfirmPasswordInputError] = useState('');
+  const [adminUsername, setAdminUsername] = useState('');
+  const [adminPassword, setAdminPassword] = useState('');
 
   useEffect(() => {
     if (!visible) {
@@ -36,6 +38,8 @@ const AccountCreationDialog = ({ visible, onClose, onConfirm }) => {
       setAdminPasscodeError('');
       setPasswordInputError('');
       setConfirmPasswordInputError('');
+      setAdminUsername('');
+      setAdminPassword('');
     }
   }, [visible]);
 
@@ -81,13 +85,27 @@ const AccountCreationDialog = ({ visible, onClose, onConfirm }) => {
 
     if (isValid) {
       try {
-        console.log('Consultant Name:', consultantName);
-        console.log('Area:', area);
-        console.log('Admin Passcode:', admin_passcode);
-        console.log('Password:', password);
-        await addConsultant(consultantName, admin_passcode ,password, area);
-        onConfirm(consultantName, admin_passcode, password, area);
-        onClose();
+        // Fetch admin credentials
+        const adminCredentials = await getAdmin('admin', admin_passcode);
+
+        if (adminCredentials) {
+          // Store username and password in state variables
+          setAdminUsername(adminCredentials.username);
+          setAdminPassword(adminCredentials.password);
+
+          if (adminPassword === admin_passcode) {
+            // Admin passcode is valid, proceed with adding the consultant
+            await addConsultant(consultantName, admin_passcode, password, area);
+            onConfirm(consultantName, admin_passcode, password, area);
+            onClose();
+          } else {
+            // Admin passcode is invalid
+            setAdminPasscodeError('Invalid admin passcode');
+          }
+        } else {
+          // Handle case where no admin credentials are found
+          setAdminPasscodeError('Admin not found');
+        }
       } catch (error) {
         console.error('Error adding consultant:', error);
       }
@@ -132,6 +150,7 @@ const AccountCreationDialog = ({ visible, onClose, onConfirm }) => {
           {adminPasscodeError ? <Text style={styles.errorText}>{adminPasscodeError}</Text> : null}
           <TextInput
             label="Admin Passcode"
+            secureTextEntry
             value={admin_passcode}
             onChangeText={(text) => {
               setAdminPasscode(text);

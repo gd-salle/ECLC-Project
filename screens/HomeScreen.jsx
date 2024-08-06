@@ -79,6 +79,14 @@ const HomeScreen = () => {
   };
 
   const handleStartCollection = () => {
+    if(!consultant){
+      Alert.alert('No Colsutant', 'There is no consultant information.');
+      return;
+    }
+    if (!collectionDate) {
+      Alert.alert('No Collection Period', 'There is no collection period today.');
+      return;
+    }
     setAuthAction('consultant');
     setDialogVisible(true);
   };
