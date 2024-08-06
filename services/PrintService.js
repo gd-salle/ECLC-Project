@@ -1,7 +1,7 @@
 import { BluetoothEscposPrinter } from 'react-native-bluetooth-escpos-printer';
 
 export const printReceipt = async (data) => {
-    const { account_number, name, remaining_balance, payment_type, cheque_number, amount_paid, daily_due } = data;
+    const { account_number, name, remaining_balance, payment_type, cheque_number, amount_paid, daily_due, creditors_name } = data;
     const columnWidths = [15, 18];
     
     try {
@@ -15,22 +15,13 @@ export const printReceipt = async (data) => {
         await BluetoothEscposPrinter.printText('COLLECTION RECEIPT', {});
         await BluetoothEscposPrinter.printText('\r\n', {});
         await BluetoothEscposPrinter.printText('--------------------------------', {});
-        await BluetoothEscposPrinter.printText('\r\n\r\n\r\n', {});
 
-        await BluetoothEscposPrinter.printColumn(
-            columnWidths,
-            [BluetoothEscposPrinter.ALIGN.LEFT, BluetoothEscposPrinter.ALIGN.RIGHT],
-            ['Account Number', account_number.toString()],
-            {},
-        );
 
-        await BluetoothEscposPrinter.printColumn(
-            columnWidths,
-            [BluetoothEscposPrinter.ALIGN.LEFT, BluetoothEscposPrinter.ALIGN.RIGHT],
-            ['Name', name],
-            {},
-        );
-
+        await BluetoothEscposPrinter.printerAlign(BluetoothEscposPrinter.ALIGN.LEFT);
+        await BluetoothEscposPrinter.printText(`Account No  ${account_number}\r\n`, {});
+        await BluetoothEscposPrinter.printText(`Name        ${name}\n`,{});
+        
+        await BluetoothEscposPrinter.printText('--------------------------------', {});
         await BluetoothEscposPrinter.printColumn(
             columnWidths,
             [BluetoothEscposPrinter.ALIGN.LEFT, BluetoothEscposPrinter.ALIGN.RIGHT],
@@ -69,14 +60,16 @@ export const printReceipt = async (data) => {
             {},
         );
 
-        await BluetoothEscposPrinter.printText('\r\n', {});
-
+        
+        
         await BluetoothEscposPrinter.printColumn(
             [48],
             [BluetoothEscposPrinter.ALIGN.LEFT],
-            ['Signature: .....................'],
+            ['Signature .....................'],
             {},
         );
+        await BluetoothEscposPrinter.printText('\r\n', {});
+        await BluetoothEscposPrinter.printText(`Creditors Name ${creditors_name}\n`, {});
         
         await BluetoothEscposPrinter.printText('\r\n\r\n\r\n', {});
     } catch (e) {

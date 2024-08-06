@@ -118,11 +118,11 @@ export const exportCollectibles = async (periodId) => {
       return 'error';
     }
 
-    const { name: consultantName } = consultantInfo;
-    const formattedDate = getFormattedDate();
-
-    await checkUnprintedCollectibles(db, periodId);
-
+    const collectibles = await getCollectiblesData(db, periodId);
+    const unprintedCheck = await checkUnprintedCollectibles(db, periodId);
+    if (unprintedCheck === 'unprinted_collectibles') {
+      return 'unprinted_collectibles';
+    }
     const period = await getPeriodData(db, periodId);
     if (!period) throw new Error('Period not found');
     if (period.isExported) {
@@ -130,7 +130,9 @@ export const exportCollectibles = async (periodId) => {
       return 'already_exported';
     }
 
-    const collectibles = await getCollectiblesData(db, periodId);
+    const { name: consultantName } = consultantInfo;
+    const formattedDate = getFormattedDate();
+
     const csvContent = convertToCSV(collectibles);
 
     const fileName = `${consultantName}_${formattedDate}.csv`.replace(/[/]/g, '-');
@@ -152,6 +154,7 @@ export const exportCollectibles = async (periodId) => {
   }
 };
 
+
 const getFormattedDate = () => {
   const date = new Date();
   return `${date.getMonth() + 1}-${date.getDate()}-${date.getFullYear()}`;
@@ -165,9 +168,11 @@ const checkUnprintedCollectibles = async (db, periodId) => {
 
   if (unprintedCollectibles.length > 0) {
     console.log('Not all collectibles are printed. Export aborted.');
-    throw new Error('Not all collectibles are printed. Export aborted.');
+    Alert.alert('Export Aborted', 'Not all collectibles are printed. Please ensure all collectibles are printed before exporting.');
+    return 'unprinted_collectibles';
   }
 };
+
 
 const getPeriodData = async (db, periodId) => {
   const periods = await db.getAllAsync(`

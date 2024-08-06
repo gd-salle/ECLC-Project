@@ -8,13 +8,12 @@ import { fetchPeriodDateById, numberToWords, updateCollectible } from '../servic
 import { printReceipt } from '../services/PrintService';
 import { getConnectionStatus } from '../services/BluetoothService';
 import BluetoothConfig from '../components/BluetoothConfig';
+import { getConsultantInfo } from '../services/UserService';
 
 const DataEntry = () => {
   const route = useRoute();
   const navigation = useNavigation();
-
   const { item } = route.params; // Access the passed data
-
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('');
   const [isChequeNumberVisible, setChequeNumberVisible] = useState(false);
   const [chequeNumber, setChequeNumber] = useState('');
@@ -27,8 +26,20 @@ const DataEntry = () => {
   const [errors, setErrors] = useState({});
   const [confirmData, setConfirmData] = useState({});
   const [isBluetoothConfigVisible, setBluetoothConfigVisible] = useState(false);
+  const [consultantName, setConsultantName] = useState('');
 
   useEffect(() => {
+    const fetchConsultantInfo = async () => {
+      try {
+        const info = await getConsultantInfo();
+        if (info) {
+          setConsultantName(info.name); // Set the consultant's name
+        }
+      } catch (error) {
+        console.error('Failed to fetch consultant info:', error);
+      }
+    };
+
     const fetchPeriodDate = async () => {
       try {
         const date = await fetchPeriodDateById(item.period_id);
@@ -37,7 +48,7 @@ const DataEntry = () => {
         console.error('Failed to fetch period date:', error);
       }
     };
-
+    fetchConsultantInfo();
     fetchPeriodDate();
   }, [item.period_id]);
 
@@ -65,10 +76,6 @@ const DataEntry = () => {
     }
     if (!sumOf) {
       newErrors.sumOf = 'Please enter the sum of.';
-      valid = false;
-    }
-    if (!creditorsName) {
-      newErrors.creditorsName = 'Please enter the creditor\'s name.';
       valid = false;
     }
 
@@ -135,6 +142,7 @@ const DataEntry = () => {
       cheque_number: chequeNumber,
       amount_paid: amountPaid,
       daily_due: item.daily_due,
+      creditors_name: consultantName,
     };
 
     try {
@@ -250,13 +258,9 @@ const DataEntry = () => {
           mode="flat"
           label="Creditor's Name"
           style={styles.input}
-          value={creditorsName}
-          onChangeText={setCreditorsName}
-          error={!!errors.creditorsName}
+          value={consultantName}
+          editable={ false }
         />
-        {errors.creditorsName ? (
-          <Text style={styles.errorText}>{errors.creditorsName}</Text>
-        ) : null}
 
         <ConfirmationDialog
           visible={confirmationDialogVisible}
