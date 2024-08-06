@@ -68,7 +68,7 @@ const HomeScreen = () => {
   const fetchAndSetLatestPeriodDate = async () => {
     try {
       const result = await fetchLatestPeriodDate();
-      if (result && result.isExported === 0) {
+      if (result) {
         setCollectionDate(result.date || '');
       } else {
         setCollectionDate(''); // Clear the collection date if isExported is 1

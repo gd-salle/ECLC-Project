@@ -118,7 +118,7 @@ export const fetchLatestPeriodDate = async () => {
       ORDER BY period_id DESC
       LIMIT 1
     `);
-    return result && result.isExported === 0 ? result.date : null;
+    return result && result.isExported === 0 ? result : null;
   } catch (error) {
     console.error('Error fetching latest period date:', error);
     throw error;
