@@ -145,6 +145,21 @@ export const fetchPeriodDateById = async (periodId) => {
   }
 };
 
+export const fetchPeriodIdByDate = async (date) => {
+    try {
+        const db = await openDatabase();
+        const result = await db.getFirstAsync(
+            'SELECT period_id FROM period WHERE date = ?',
+            [date]
+        );
+        return result ? result.period_id : null;
+    } catch (error) {
+        console.error('Error fetching period ID by date:', error);
+        throw error;
+    }
+};
+
+
 export const numberToWords = (num) => {
   const a = [
     '', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten',
@@ -225,3 +240,18 @@ export const updateCollectible = async ({
     throw error;
   }
 };
+export const updateAll = async () => {
+  try {
+    const db = await openDatabase();
+
+    await db.runAsync(`
+      UPDATE collectibles
+      SET
+        is_printed = 1
+
+      WHERE is_printed = 0
+      `);
+  } catch (e) {
+    console.error('Error updating collectible:', e);
+  }
+}
