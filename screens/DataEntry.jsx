@@ -4,9 +4,9 @@ import { Appbar, Card, Text, TextInput, Checkbox, Button, Divider } from 'react-
 import { useNavigation, useRoute } from '@react-navigation/native';
 import ConfirmationDialog from '../components/ConfirmationDialog';
 import WarningConfirmationDialog from '../components/WarningConfimationDialog';
-import { fetchPeriodDateById, numberToWords, updateCollectible } from '../services/CollectiblesServices';
+import { fetchPeriodDateById, numberToWords, updateCollectible} from '../services/CollectiblesServices';
 import { printReceipt } from '../services/PrintService';
-// import { getConnectionStatus } from '../services/BluetoothService';
+import { getConnectionStatus } from '../services/BluetoothService';
 import BluetoothConfig from '../components/BluetoothConfig';
 import { getConsultantInfo } from '../services/UserService';
 
@@ -104,25 +104,25 @@ const DataEntry = () => {
     setWarningDialogVisible(true);
   };
   
-  // const bluetoothStatus = getConnectionStatus();
+  const bluetoothStatus = getConnectionStatus();
 
   const handleWarningConfirm = async () => {
     setWarningDialogVisible(false);
-    // try {
-    //   if (bluetoothStatus) {
-    //     console.log(bluetoothStatus);
-    //     navigation.navigate('Collectibles');
-    //     handlePrintReceipt();
-    //     await updateCollectible(confirmData);
-    //     Alert.alert('Success', 'Printed successfully.');
-    //   } else {
-    //     Alert.alert('Please connect to Bluetooth Printer', 'No bluetooth printer connected.');
-    //     setBluetoothConfigVisible(true);
-    //   }
-    // } catch (error) {
-    //   Alert.alert('Error', 'No bluetooth printer connected.');
-    //   // console.error('Failed to print:', error);
-    // }
+    try {
+      if (bluetoothStatus) {
+        console.log(bluetoothStatus);
+        navigation.navigate('Collectibles');
+        handlePrintReceipt();
+        await updateCollectible(confirmData);
+        Alert.alert('Success', 'Printed successfully.');
+      } else {
+        Alert.alert('Please connect to Bluetooth Printer', 'No bluetooth printer connected.');
+        setBluetoothConfigVisible(true);
+      }
+    } catch (error) {
+      Alert.alert('Error', 'No bluetooth printer connected.');
+      // console.error('Failed to print:', error);
+    }
   };
 
   const handleAmountPaidChange = (value) => {

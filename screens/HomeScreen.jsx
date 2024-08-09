@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, Text, Image, Alert } from 'react-native';
 import { Button, IconButton, TextInput } from 'react-native-paper';
-import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from 'react-native-modal-datetime-picker';
 import { useNavigation } from '@react-navigation/native';
 import AuthDialog from '../components/AutheticationDialog';
@@ -248,10 +247,6 @@ const handleDialogConfirm = async (username, password) => {
     setCollectionDateDialogVisible(false);
     pendingAction();
   };
-  const handleTest = async () => {
-    const period = await fetchAllPeriods();
-    console.log (period)
-  }
   return (
     <View style={styles.container}>
       <Image source={require('../assets/logo.png')} style={styles.logo} />
@@ -302,15 +297,6 @@ const handleDialogConfirm = async (username, password) => {
         labelStyle={styles.adminButtonText}
       >
         ADMIN TOOLS
-      </Button>
-
-      <Button
-        mode="outlined"
-        onPress={handleTest}
-        style={styles.adminButton}
-        labelStyle={styles.adminButtonText}
-      >
-        test
       </Button>
 
       <AuthDialog
@@ -372,9 +358,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   logo: {
-    width: 100,
+    width: '100%',
     height: 100,
     marginBottom: 20,
+    objectFit: 'contain'
   },
   title: {
     fontSize: 24,
