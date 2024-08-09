@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Text, Image, Alert} from 'react-native';
-import { Button, TextInput } from 'react-native-paper';
+import { StyleSheet, View, Text, Image, Alert } from 'react-native';
+import { Button, TextInput, IconButton } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import AuthDialog from '../components/AutheticationDialog';
 import AdminToolsDialog from '../components/AdminToolsDialog';
@@ -10,15 +10,16 @@ import CollectionDateDialog from '../components/CollectionDateDialog';
 import BluetoothConfig from '../components/BluetoothConfig';
 import { handleImport } from '../services/FileService';
 import { getConsultantInfo } from '../services/UserService';
-import { fetchAllPeriods, fetchLatestPeriodDate, fetchLatestPeriodID, fetchAllCollectibles } from '../services/CollectiblesServices';
+import { fetchLatestPeriodDate, fetchAllPeriods,fetchLatestPeriodID } from '../services/CollectiblesServices';
 import { exportCollectibles } from '../services/FileService';
-import { isBluetoothEnabled, getConnectionStatus } from '../services/BluetoothService';
+import { isBluetoothEnabled } from '../services/BluetoothService';
 import { getAdmin, getConsultant } from '../services/UserService';
 
 const HomeScreen = () => {
   const [consultant, setConsultant] = useState('');
   const [area, setArea] = useState('');
-  const [collectionDate, setCollectionDate] = useState('');
+  const [collectionDate, setCollectionDate] = useState(new Date()); // Initialize with current date
+  const [periodId, setPeriodId] = useState(null); // State variable to store the period ID
   const [isDialogVisible, setDialogVisible] = useState(false);
   const [authAction, setAuthAction] = useState(null);
   const [isAdminToolsVisible, setAdminToolsVisible] = useState(false);
@@ -28,6 +29,7 @@ const HomeScreen = () => {
   const [pendingAction, setPendingAction] = useState(() => {});
   const [isBluetoothConfigVisible, setBluetoothConfigVisible] = useState(false);
   const [refreshFlag, setRefreshFlag] = useState(false);
+  const [collectionDates, setCollectionDates] = useState([]);
   const navigation = useNavigation();
 
   useEffect(() => {
@@ -69,22 +71,45 @@ const HomeScreen = () => {
     try {
       const result = await fetchLatestPeriodDate();
       if (result) {
-        setCollectionDate(result.date || '');
+        setCollectionDate(new Date(result.date)); // Convert string to Date object
+        await fetchAndSetPeriodId(result.date);
       } else {
-        setCollectionDate(''); // Clear the collection date if isExported is 1
+        setCollectionDate(new Date()); // Reset to current date if no result
       }
+      const periods = await fetchAllPeriods();
+      const dates = periods.map(period => ({
+        label: period.date,
+        value: period.date
+      }));
+      setCollectionDates(dates);
     } catch (error) {
       console.error('Failed to fetch latest period date:', error);
     }
   };
 
+  const fetchAndSetPeriodId = async (date) => {
+    try {
+      const periods = await fetchAllPeriods();
+      const selectedPeriod = periods.find(period => period.date === date);
+      if (selectedPeriod) {
+        setPeriodId(selectedPeriod.period_id); // Store the period ID in state
+      } else {
+        Alert.alert('No Period ID', 'Period ID not found for the selected date.');
+        setPeriodId(null); // Reset periodId if no period found
+      }
+    } catch (error) {
+      console.error('Error fetching period ID:', error);
+      setPeriodId(null); // Reset periodId in case of error
+    }
+  };
+
   const handleStartCollection = () => {
-    if(!consultant){
-      Alert.alert('No Colsutant', 'There is no consultant information.');
+    if (!consultant) {
+      Alert.alert('No Consultant', 'There is no consultant information.');
       return;
     }
-    if (!collectionDate) {
-      Alert.alert('No Collection Period', 'There is no collection period today.');
+    if (!periodId) {
+      Alert.alert('No Period Selected', 'No period ID selected for the current collection date.');
       return;
     }
     setAuthAction('consultant');
@@ -100,39 +125,39 @@ const HomeScreen = () => {
     setDialogVisible(false);
   };
 
-const handleDialogConfirm = async (username, password) => {
-  try {
-    if (authAction === 'consultant') {
-      const consultant = await getConsultant(username, password);
-      const admin = await getAdmin(username, password);
-      if (admin) {
-        setDialogVisible(false);
-        navigation.navigate('Collectibles');
-      } else if (consultant) {
-        setDialogVisible(false);
-        navigation.navigate('Collectibles');
-      } else {
-        Alert.alert('Authentication Failed', 'Invalid consultant credentials.');
-      }
-    } else if (authAction === 'admin') {
-      // Handle admin authentication
-      const admin = await getAdmin(username, password);
-      if (admin) {
-        setDialogVisible(false);
-        setAdminToolsVisible(true);
-      } else {
+  const handleDialogConfirm = async (username, password) => {
+    try {
+      if (authAction === 'consultant') {
+        if (!periodId) {
+          Alert.alert('Error', 'No period ID selected.');
+          return;
+        }
         const consultant = await getConsultant(username, password);
-        if (consultant) {
-          Alert.alert('Access Denied', 'Consultants cannot access admin features.');
+        const admin = await getAdmin(username, password);
+        if (admin || consultant) {
+          setDialogVisible(false);
+          navigation.navigate('Collectibles', { periodId });
         } else {
-          Alert.alert('Authentication Failed', 'Invalid admin credentials.');
+          Alert.alert('Authentication Failed', 'Invalid consultant credentials.');
+        }
+      } else if (authAction === 'admin') {
+        const admin = await getAdmin(username, password);
+        if (admin) {
+          setDialogVisible(false);
+          setAdminToolsVisible(true);
+        } else {
+          const consultant = await getConsultant(username, password);
+          if (consultant) {
+            Alert.alert('Access Denied', 'Consultants cannot access admin features.');
+          } else {
+            Alert.alert('Authentication Failed', 'Invalid admin credentials.');
+          }
         }
       }
+    } catch (error) {
+      Alert.alert('Error', 'An error occurred during authentication.');
     }
-  } catch (error) {
-    Alert.alert('Error', 'An error occurred during authentication.');
-  }
-};
+  };
 
   const handleExport = async () => {
     try {
@@ -161,7 +186,6 @@ const handleDialogConfirm = async (username, password) => {
       Alert.alert('Error', msg || 'Failed to export data');
     }
   };
-
 
   const confirmExport = async () => {
     setExportConfirmationVisible(false);
@@ -199,13 +223,21 @@ const handleDialogConfirm = async (username, password) => {
   };
 
   const handleCollectionDateDialogConfirm = async (date) => {
-    setCollectionDate(date);
-    const importSuccessful = await handleImport(date);
+    const formattedDate = date.split('/').reverse().join('-'); // Convert from YYYY/MM/DD to YYYY-MM-DD
+    setCollectionDate(new Date(formattedDate));
+    const importSuccessful = await handleImport(new Date(formattedDate));
     if (!importSuccessful) {
       setCollectionDate(''); // Reset collection date if import failed
     }
     setCollectionDateDialogVisible(false);
     pendingAction();
+  };
+
+  const formatDate = (date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}/${month}/${day}`;
   };
 
   return (
@@ -228,14 +260,21 @@ const handleDialogConfirm = async (username, password) => {
         editable={false}
         style={styles.input}
       />
-      <TextInput
-        label="Date of Collection"
-        value={collectionDate}
-        onChangeText={setCollectionDate}
-        mode="outlined"
-        editable={false}
-        style={styles.input}
-      />
+      <View style={styles.dateInputContainer}>
+        <TextInput
+          label="Date of Collection"
+          value={formatDate(collectionDate)}
+          mode="outlined"
+          editable={false}
+          style={[styles.input, { flex: 1 }]}
+        />
+        <IconButton
+          icon="calendar"
+          size={24}
+          onPress={() => setCollectionDateDialogVisible(true)} // Open collection date dialog
+        />
+      </View>
+
       <Button
         mode="contained"
         onPress={handleStartCollection}
@@ -252,12 +291,19 @@ const handleDialogConfirm = async (username, password) => {
       >
         ADMIN TOOLS
       </Button>
-
-      <AuthDialog 
-        visible={isDialogVisible} 
-        onClose={handleDialogClose} 
-        onConfirm={handleDialogConfirm} 
-        isConsultantAuth={authAction === 'consultant'} 
+      {/* <Button
+        mode="outlined"
+        onPress={handleTest}
+        style={styles.adminButton}
+        labelStyle={styles.adminButtonText}
+      >
+        TEST
+      </Button> */}
+      <AuthDialog
+        visible={isDialogVisible}
+        onClose={handleDialogClose}
+        onConfirm={handleDialogConfirm}
+        isConsultantAuth={authAction === 'consultant'}
       />
       <AdminToolsDialog
         visible={isAdminToolsVisible}
@@ -295,8 +341,6 @@ const handleDialogConfirm = async (username, password) => {
   );
 };
 
-export default HomeScreen;
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -306,9 +350,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   logo: {
-    width: 100,
+    width: '100%',
     height: 100,
     marginBottom: 20,
+    objectFit: 'contain'
   },
   title: {
     fontSize: 24,
@@ -319,6 +364,14 @@ const styles = StyleSheet.create({
   input: {
     width: '100%',
     marginBottom: 15,
+    zIndex: 0,
+  },
+  dateInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    marginBottom: 15,
+    zIndex: 0,
   },
   startButton: {
     width: '100%',
@@ -339,3 +392,6 @@ const styles = StyleSheet.create({
     color: '#0A154D',
   },
 });
+
+export default HomeScreen;
+

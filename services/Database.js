@@ -1,11 +1,11 @@
 import * as SQLite from 'expo-sqlite';
 
-const databaseName = 'eclcDB.db';
+const databaseName = 'eclcDB3.db';
 
 export const openDatabase = async () => {
   try {
     const db = await SQLite.openDatabaseAsync(databaseName, { useNewConnection: true });
-    console.log('Database opened successfully');
+    // console.log('Database opened successfully');
 
     const tablesCheck = await db.getAllAsync(`
       SELECT name FROM sqlite_master WHERE type='table' AND name IN (

@@ -1,9 +1,12 @@
 import { openDatabase } from './Database';
 
-export const fetchCollectibles = async () => {
+export const fetchCollectibles = async (period_id) => {
     try {
         const db = await openDatabase();
-        const allRows = await db.getAllAsync('SELECT * FROM collectibles c JOIN period p ON c.period_id = p.period_id WHERE c.is_printed = 0 AND p.isExported = 0');
+        const allRows = await db.getAllAsync(
+            'SELECT * FROM collectibles c JOIN period p ON c.period_id = p.period_id WHERE c.is_printed = 0 AND p.isExported = 0 AND c.period_id = ?', 
+            [period_id] // Pass period_id as a parameter
+        );
 
         // Map the rows from the database to your Collectibles object
         const collectibles = allRows.map(row => ({
@@ -28,10 +31,13 @@ export const fetchCollectibles = async () => {
     }
 };
 
-export const fetchAllCollectibles = async () => {
+export const fetchAllCollectibles = async (period_id) => {
     try {
         const db = await openDatabase();
-        const allRows = await db.getAllAsync('SELECT * FROM collectibles');
+        const allRows = await db.getAllAsync(
+            'SELECT * FROM collectibles c JOIN period p ON c.period_id = p.period_id WHERE c.period_id = ?', 
+            [period_id] // Pass period_id as a parameter
+        );
 
         // Map the rows from the database to your Collectibles object
         const collectibles = allRows.map(row => ({
@@ -219,3 +225,19 @@ export const updateCollectible = async ({
     throw error;
   }
 };
+
+export const updateAll = async () => {
+  try {
+    const db = await openDatabase();
+
+    await db.runAsync(`
+      UPDATE collectibles
+      SET
+        is_printed = 1
+
+      WHERE is_printed = 0
+      `);
+  } catch (e) {
+    console.error('Error updating collectible:', e);
+  }
+}
