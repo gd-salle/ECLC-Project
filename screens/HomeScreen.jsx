@@ -248,7 +248,10 @@ const handleDialogConfirm = async (username, password) => {
     setCollectionDateDialogVisible(false);
     pendingAction();
   };
-
+  const handleTest = async () => {
+    const period = await fetchAllPeriods();
+    console.log (period)
+  }
   return (
     <View style={styles.container}>
       <Image source={require('../assets/logo.png')} style={styles.logo} />
@@ -299,6 +302,15 @@ const handleDialogConfirm = async (username, password) => {
         labelStyle={styles.adminButtonText}
       >
         ADMIN TOOLS
+      </Button>
+
+      <Button
+        mode="outlined"
+        onPress={handleTest}
+        style={styles.adminButton}
+        labelStyle={styles.adminButtonText}
+      >
+        test
       </Button>
 
       <AuthDialog
