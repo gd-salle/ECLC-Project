@@ -65,18 +65,40 @@ const HomeScreen = () => {
     }
   };
 
-  const fetchAndSetLatestPeriodDate = async () => {
-    try {
-      const result = await fetchLatestPeriodDate();
-      if (result) {
-        setCollectionDate(result.date || '');
-      } else {
-        setCollectionDate(''); // Clear the collection date if isExported is 1
-      }
-    } catch (error) {
-      console.error('Failed to fetch latest period date:', error);
+const fetchAndSetLatestPeriodDate = async () => {
+  try {
+    // Fetch all periods
+    const allPeriods = await fetchAllPeriods();
+
+    // Get the current date in GMT+8 timezone
+    const offset = 8 * 60; // GMT+8 offset in minutes
+    const currentDate = new Date(new Date().getTime() + offset * 60 * 1000)
+      .toISOString()
+      .split('T')[0]; // Format to 'YYYY-MM-DD'
+
+    // Find the period for the current date
+    const currentPeriod = allPeriods.find(period => period.date === currentDate);
+
+    // Store the period ID in a variable if the current date is found
+    if (currentPeriod) {
+      const periodId = currentPeriod.period_id;
+      console.log(`Period ID for the current date (${currentDate}): ${periodId}`);
+      setCollectionDate(currentDate);
+      return periodId; // Return the periodId for use in navigation
+    } else {
+      console.log(`No period found for the current date (${currentDate})`);
+      setCollectionDate('');
+      return null; // No period found
     }
-  };
+  } catch (error) {
+    console.error('Failed to fetch period dates:', error);
+    return null; // Return null in case of an error
+  }
+};
+
+
+
+
 
   const handleStartCollection = () => {
     if(!consultant){
@@ -105,12 +127,16 @@ const handleDialogConfirm = async (username, password) => {
     if (authAction === 'consultant') {
       const consultant = await getConsultant(username, password);
       const admin = await getAdmin(username, password);
-      if (admin) {
+      if (admin || consultant) {
         setDialogVisible(false);
-        navigation.navigate('Collectibles');
-      } else if (consultant) {
-        setDialogVisible(false);
-        navigation.navigate('Collectibles');
+
+        // Fetch the period ID and navigate to Collectibles
+        const periodId = await fetchAndSetLatestPeriodDate();
+        if (periodId) {
+          navigation.navigate('Collectibles', { periodId });
+        } else {
+          Alert.alert('Error', 'No valid period ID found.');
+        }
       } else {
         Alert.alert('Authentication Failed', 'Invalid consultant credentials.');
       }
@@ -133,6 +159,7 @@ const handleDialogConfirm = async (username, password) => {
     Alert.alert('Error', 'An error occurred during authentication.');
   }
 };
+
 
   const handleExport = async () => {
     try {
@@ -233,7 +260,6 @@ const handleDialogConfirm = async (username, password) => {
         value={collectionDate}
         onChangeText={setCollectionDate}
         mode="outlined"
-        editable={false}
         style={styles.input}
       />
       <Button
