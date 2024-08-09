@@ -89,10 +89,17 @@ const processCSVContent = async (content, selectedCollectionDate, periodID) => {
     return;
   }
 
-  const data = rows.slice(1).map(row => {
+  // Check for any extra headers that are not required
+  const extraHeaders = headers.filter(header => !requiredHeaders.includes(header));
+  if (extraHeaders.length > 0) {
+    Alert.alert('Error', `Invalid CSV format. Extra headers found: ${extraHeaders.join(', ')}`);
+    return;
+  }
+
+  const data = rows.slice(1).map((row, rowIndex) => {
     const values = row.split(',').map(value => value.trim());
     const entry = headers.reduce((obj, header, index) => {
-      obj[header] = values[index];
+      obj[header] = values[index] || ''; // Use empty string for missing data
       return obj;
     }, {});
     // Add the period_id to each entry
@@ -101,12 +108,27 @@ const processCSVContent = async (content, selectedCollectionDate, periodID) => {
     return entry;
   });
 
+  // Check for any missing data in required fields
+  const incompleteRows = data.reduce((acc, entry, index) => {
+    const missingData = requiredHeaders.filter(header => !entry[header]);
+    if (missingData.length > 0) {
+      acc.push(`Row ${index + 2}: Missing data for fields: ${missingData.join(', ')}`);
+    }
+    return acc;
+  }, []);
+
+  if (incompleteRows.length > 0) {
+    Alert.alert('Error', `Incomplete data found:\n${incompleteRows.join('\n')}`);
+    return;
+  }
+
   for (const entry of data) {
     await insertCollectiblesIntoDatabase(entry);
   }
 
   Alert.alert('Success', 'Collectibles Successfully Imported');
 };
+
 
 
 export const exportCollectibles = async (periodId) => {
@@ -145,8 +167,8 @@ export const exportCollectibles = async (periodId) => {
     }
 
     await markPeriodAsExported(db, periodId);
-    await deleteCollectiblesData(db, periodId);
-    await deletePeriodData(db, periodId);
+    // await deleteCollectiblesData(db, periodId);
+    // await deletePeriodData(db, periodId);
     return 'success';
   } catch (error) {
     console.error('Error exporting collectibles:', error);
@@ -167,7 +189,7 @@ const checkUnprintedCollectibles = async (db, periodId) => {
   `, [periodId]);
 
   if (unprintedCollectibles.length > 0) {
-    console.log('Not all collectibles are printed. Export aborted.');
+    // console.log('Not all collectibles are printed. Export aborted.');
     Alert.alert('Export Aborted', 'Not all collectibles are printed. Please ensure all collectibles are printed before exporting.');
     return 'unprinted_collectibles';
   }

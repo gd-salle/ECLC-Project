@@ -12,7 +12,7 @@ import CollectionDateDialog from '../components/CollectionDateDialog';
 import BluetoothConfig from '../components/BluetoothConfig';
 import { handleImport } from '../services/FileService';
 import { getConsultantInfo } from '../services/UserService';
-import { fetchAllPeriods, fetchLatestPeriodDate, fetchLatestPeriodID, fetchPeriodIdByDate } from '../services/CollectiblesServices';
+import { fetchLatestPeriodDate, fetchPeriodIdByDate, fetchLatestPeriodID, fetchAllPeriods } from '../services/CollectiblesServices';
 import { exportCollectibles } from '../services/FileService';
 import { isBluetoothEnabled } from '../services/BluetoothService';
 import { getAdmin, getConsultant } from '../services/UserService';
@@ -68,20 +68,16 @@ const HomeScreen = () => {
     }
   };
 
-  const fetchAndSetLatestPeriodDate = async (date) => {
+  const fetchAndSetLatestPeriodDate = async () => {
     try {
-      const periodId = await fetchPeriodIdByDate(date);
-      if (periodId) {
-        setCollectionDate(date);
-        return periodId;
+      const result = await fetchLatestPeriodDate();
+      if (result) {
+        setCollectionDate(result.date || '');
       } else {
-        Alert.alert('No Collection Period', `No period found for the selected date (${date}).`);
-        setCollectionDate('');
-        return null;
+        setCollectionDate(''); // Clear the collection date if no date is found
       }
     } catch (error) {
-      console.error('Failed to fetch period date:', error);
-      return null;
+      console.error('Failed to fetch latest period date:', error);
     }
   };
 
@@ -95,7 +91,8 @@ const HomeScreen = () => {
 
   const handleDateConfirm = async (date) => {
     const formattedDate = date.toISOString().split('T')[0];
-    await fetchAndSetLatestPeriodDate(formattedDate);
+    setCollectionDate(formattedDate);
+    await fetchPeriodIdByDate(formattedDate);
     hideDatePicker();
   };
 
@@ -121,40 +118,70 @@ const HomeScreen = () => {
     setDialogVisible(false);
   };
 
-  const handleDialogConfirm = async (username, password) => {
+  const fetchAndSetPeriodDate = async (selectedDate) => {
     try {
-      if (authAction === 'consultant') {
-        const consultant = await getConsultant(username, password);
-        const admin = await getAdmin(username, password);
-        if (admin || consultant) {
-          setDialogVisible(false);
-          const periodId = await fetchAndSetLatestPeriodDate(collectionDate);
-          if (periodId) {
-            navigation.navigate('Collectibles', { periodId });
-          } else {
-            Alert.alert('Error', 'No valid period ID found.');
-          }
-        } else {
-          Alert.alert('Authentication Failed', 'Invalid consultant credentials.');
-        }
-      } else if (authAction === 'admin') {
-        const admin = await getAdmin(username, password);
-        if (admin) {
-          setDialogVisible(false);
-          setAdminToolsVisible(true);
-        } else {
-          const consultant = await getConsultant(username, password);
-          if (consultant) {
-            Alert.alert('Access Denied', 'Consultants cannot access admin features.');
-          } else {
-            Alert.alert('Authentication Failed', 'Invalid admin credentials.');
-          }
-        }
+      // Fetch all periods from the database
+      const allPeriods = await fetchAllPeriods();
+
+      // Find the period corresponding to the selected date
+      const currentPeriod = allPeriods.find(period => period.date === selectedDate);
+
+      // If a period is found for the selected date, store its ID and return it
+      if (currentPeriod) {
+        const periodId = currentPeriod.period_id;
+        console.log(`Period ID for the selected date (${selectedDate}): ${periodId}`);
+        setCollectionDate(selectedDate); // Set the selected date
+        return periodId; // Return the period ID for use in navigation
+      } else {
+        console.log(`No period found for the selected date (${selectedDate})`);
+        setCollectionDate(''); // Clear the date if no period is found
+        return null; // Return null if no period is found
       }
     } catch (error) {
-      Alert.alert('Error', 'An error occurred during authentication.');
+      console.error('Failed to fetch period dates:', error);
+      return null; // Return null in case of an error
     }
   };
+
+  
+const handleDialogConfirm = async (username, password) => {
+  try {
+    if (authAction === 'consultant') {
+      const consultant = await getConsultant(username, password);
+      const admin = await getAdmin(username, password);
+      if (admin || consultant) {
+        setDialogVisible(false);
+
+        // Fetch the period ID using the selected collection date
+        const periodId = await fetchAndSetPeriodDate(collectionDate);
+        
+        if (periodId) {
+          navigation.navigate('Collectibles', { periodId });
+        } else {
+          Alert.alert('Error', 'No valid period ID found for the selected date.');
+        }
+      } else {
+        Alert.alert('Authentication Failed', 'Invalid consultant credentials.');
+      }
+    } else if (authAction === 'admin') {
+      const admin = await getAdmin(username, password);
+      if (admin) {
+        setDialogVisible(false);
+        setAdminToolsVisible(true);
+      } else {
+        const consultant = await getConsultant(username, password);
+        if (consultant) {
+          Alert.alert('Access Denied', 'Consultants cannot access admin features.');
+        } else {
+          Alert.alert('Authentication Failed', 'Invalid admin credentials.');
+        }
+      }
+    }
+  } catch (error) {
+    Alert.alert('Error', 'An error occurred during authentication.');
+  }
+};
+
 
   const handleExport = async () => {
     try {
