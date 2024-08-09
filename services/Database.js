@@ -1,6 +1,6 @@
 import * as SQLite from 'expo-sqlite';
 
-const databaseName = 'eclcDB3.db';
+const databaseName = 'eclcDB.db';
 
 export const openDatabase = async () => {
   try {
@@ -41,7 +41,7 @@ export const openDatabase = async () => {
       );
 
       CREATE TABLE IF NOT EXISTS collectibles (
-        account_number INTEGER PRIMARY KEY NOT NULL,
+        account_number INTEGER NOT NULL,
         name TEXT NOT NULL,
         remaining_balance REAL NOT NULL,
         due_date TEXT NOT NULL,

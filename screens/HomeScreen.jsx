@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, Text, Image, Alert } from 'react-native';
-import { Button, TextInput, IconButton } from 'react-native-paper';
+import { Button, IconButton, TextInput } from 'react-native-paper';
+import DateTimePicker from 'react-native-modal-datetime-picker';
 import { useNavigation } from '@react-navigation/native';
 import AuthDialog from '../components/AutheticationDialog';
 import AdminToolsDialog from '../components/AdminToolsDialog';
@@ -10,7 +11,7 @@ import CollectionDateDialog from '../components/CollectionDateDialog';
 import BluetoothConfig from '../components/BluetoothConfig';
 import { handleImport } from '../services/FileService';
 import { getConsultantInfo } from '../services/UserService';
-import { fetchLatestPeriodDate, fetchAllPeriods,fetchLatestPeriodID } from '../services/CollectiblesServices';
+import { fetchLatestPeriodDate, fetchPeriodIdByDate, fetchLatestPeriodID, fetchAllPeriods } from '../services/CollectiblesServices';
 import { exportCollectibles } from '../services/FileService';
 import { isBluetoothEnabled } from '../services/BluetoothService';
 import { getAdmin, getConsultant } from '../services/UserService';
@@ -18,8 +19,8 @@ import { getAdmin, getConsultant } from '../services/UserService';
 const HomeScreen = () => {
   const [consultant, setConsultant] = useState('');
   const [area, setArea] = useState('');
-  const [collectionDate, setCollectionDate] = useState(new Date()); // Initialize with current date
-  const [periodId, setPeriodId] = useState(null); // State variable to store the period ID
+  const [collectionDate, setCollectionDate] = useState('');
+  const [isDatePickerVisible, setDatePickerVisible] = useState(false);
   const [isDialogVisible, setDialogVisible] = useState(false);
   const [authAction, setAuthAction] = useState(null);
   const [isAdminToolsVisible, setAdminToolsVisible] = useState(false);
@@ -29,7 +30,6 @@ const HomeScreen = () => {
   const [pendingAction, setPendingAction] = useState(() => {});
   const [isBluetoothConfigVisible, setBluetoothConfigVisible] = useState(false);
   const [refreshFlag, setRefreshFlag] = useState(false);
-  const [collectionDates, setCollectionDates] = useState([]);
   const navigation = useNavigation();
 
   useEffect(() => {
@@ -47,7 +47,7 @@ const HomeScreen = () => {
           [{ text: 'OK' }]
         );
       } else {
-        setBluetoothConfigVisible(true); // Show the BluetoothConfig modal if Bluetooth is enabled
+        setBluetoothConfigVisible(true);
       }
     };
 
@@ -71,36 +71,28 @@ const HomeScreen = () => {
     try {
       const result = await fetchLatestPeriodDate();
       if (result) {
-        setCollectionDate(new Date(result.date)); // Convert string to Date object
-        await fetchAndSetPeriodId(result.date);
+        setCollectionDate(result.date || '');
       } else {
-        setCollectionDate(new Date()); // Reset to current date if no result
+        setCollectionDate(''); // Clear the collection date if no date is found
       }
-      const periods = await fetchAllPeriods();
-      const dates = periods.map(period => ({
-        label: period.date,
-        value: period.date
-      }));
-      setCollectionDates(dates);
     } catch (error) {
       console.error('Failed to fetch latest period date:', error);
     }
   };
 
-  const fetchAndSetPeriodId = async (date) => {
-    try {
-      const periods = await fetchAllPeriods();
-      const selectedPeriod = periods.find(period => period.date === date);
-      if (selectedPeriod) {
-        setPeriodId(selectedPeriod.period_id); // Store the period ID in state
-      } else {
-        Alert.alert('No Period ID', 'Period ID not found for the selected date.');
-        setPeriodId(null); // Reset periodId if no period found
-      }
-    } catch (error) {
-      console.error('Error fetching period ID:', error);
-      setPeriodId(null); // Reset periodId in case of error
-    }
+  const showDatePicker = () => {
+    setDatePickerVisible(true);
+  };
+
+  const hideDatePicker = () => {
+    setDatePickerVisible(false);
+  };
+
+  const handleDateConfirm = async (date) => {
+    const formattedDate = date.toISOString().split('T')[0];
+    setCollectionDate(formattedDate);
+    await fetchPeriodIdByDate(formattedDate);
+    hideDatePicker();
   };
 
   const handleStartCollection = () => {
@@ -108,8 +100,8 @@ const HomeScreen = () => {
       Alert.alert('No Consultant', 'There is no consultant information.');
       return;
     }
-    if (!periodId) {
-      Alert.alert('No Period Selected', 'No period ID selected for the current collection date.');
+    if (!collectionDate) {
+      Alert.alert('No Collection Period', 'There is no collection period today.');
       return;
     }
     setAuthAction('consultant');
@@ -125,39 +117,70 @@ const HomeScreen = () => {
     setDialogVisible(false);
   };
 
-  const handleDialogConfirm = async (username, password) => {
+  const fetchAndSetPeriodDate = async (selectedDate) => {
     try {
-      if (authAction === 'consultant') {
-        if (!periodId) {
-          Alert.alert('Error', 'No period ID selected.');
-          return;
-        }
-        const consultant = await getConsultant(username, password);
-        const admin = await getAdmin(username, password);
-        if (admin || consultant) {
-          setDialogVisible(false);
-          navigation.navigate('Collectibles', { periodId });
-        } else {
-          Alert.alert('Authentication Failed', 'Invalid consultant credentials.');
-        }
-      } else if (authAction === 'admin') {
-        const admin = await getAdmin(username, password);
-        if (admin) {
-          setDialogVisible(false);
-          setAdminToolsVisible(true);
-        } else {
-          const consultant = await getConsultant(username, password);
-          if (consultant) {
-            Alert.alert('Access Denied', 'Consultants cannot access admin features.');
-          } else {
-            Alert.alert('Authentication Failed', 'Invalid admin credentials.');
-          }
-        }
+      // Fetch all periods from the database
+      const allPeriods = await fetchAllPeriods();
+
+      // Find the period corresponding to the selected date
+      const currentPeriod = allPeriods.find(period => period.date === selectedDate);
+
+      // If a period is found for the selected date, store its ID and return it
+      if (currentPeriod) {
+        const periodId = currentPeriod.period_id;
+        console.log(`Period ID for the selected date (${selectedDate}): ${periodId}`);
+        setCollectionDate(selectedDate); // Set the selected date
+        return periodId; // Return the period ID for use in navigation
+      } else {
+        console.log(`No period found for the selected date (${selectedDate})`);
+        setCollectionDate(''); // Clear the date if no period is found
+        return null; // Return null if no period is found
       }
     } catch (error) {
-      Alert.alert('Error', 'An error occurred during authentication.');
+      console.error('Failed to fetch period dates:', error);
+      return null; // Return null in case of an error
     }
   };
+
+  
+const handleDialogConfirm = async (username, password) => {
+  try {
+    if (authAction === 'consultant') {
+      const consultant = await getConsultant(username, password);
+      const admin = await getAdmin(username, password);
+      if (admin || consultant) {
+        setDialogVisible(false);
+
+        // Fetch the period ID using the selected collection date
+        const periodId = await fetchAndSetPeriodDate(collectionDate);
+        
+        if (periodId) {
+          navigation.navigate('Collectibles', { periodId });
+        } else {
+          Alert.alert('Error', 'No valid period ID found for the selected date.');
+        }
+      } else {
+        Alert.alert('Authentication Failed', 'Invalid consultant credentials.');
+      }
+    } else if (authAction === 'admin') {
+      const admin = await getAdmin(username, password);
+      if (admin) {
+        setDialogVisible(false);
+        setAdminToolsVisible(true);
+      } else {
+        const consultant = await getConsultant(username, password);
+        if (consultant) {
+          Alert.alert('Access Denied', 'Consultants cannot access admin features.');
+        } else {
+          Alert.alert('Authentication Failed', 'Invalid admin credentials.');
+        }
+      }
+    }
+  } catch (error) {
+    Alert.alert('Error', 'An error occurred during authentication.');
+  }
+};
+
 
   const handleExport = async () => {
     try {
@@ -171,19 +194,12 @@ const HomeScreen = () => {
 
       if (status === 'success') {
         Alert.alert('Success', 'Collectibles exported successfully!');
-        setRefreshFlag(prev => !prev);
+        setRefreshFlag((prev) => !prev);
       } else if (status === 'canceled') {
         Alert.alert('Canceled', 'Export was canceled.');
       }
-
     } catch (error) {
-      let msg;
-      if (error instanceof Error) {
-        msg = error.message;
-      } else {
-        msg = 'An unknown error occurred';
-      }
-      Alert.alert('Error', msg || 'Failed to export data');
+      Alert.alert('Error', error instanceof Error ? error.message : 'An unknown error occurred');
     }
   };
 
@@ -223,23 +239,14 @@ const HomeScreen = () => {
   };
 
   const handleCollectionDateDialogConfirm = async (date) => {
-    const formattedDate = date.split('/').reverse().join('-'); // Convert from YYYY/MM/DD to YYYY-MM-DD
-    setCollectionDate(new Date(formattedDate));
-    const importSuccessful = await handleImport(new Date(formattedDate));
+    setCollectionDate(date);
+    const importSuccessful = await handleImport(date);
     if (!importSuccessful) {
-      setCollectionDate(''); // Reset collection date if import failed
+      setCollectionDate('');
     }
     setCollectionDateDialogVisible(false);
     pendingAction();
   };
-
-  const formatDate = (date) => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}/${month}/${day}`;
-  };
-
   return (
     <View style={styles.container}>
       <Image source={require('../assets/logo.png')} style={styles.logo} />
@@ -260,21 +267,21 @@ const HomeScreen = () => {
         editable={false}
         style={styles.input}
       />
-      <View style={styles.dateInputContainer}>
+      <View style={styles.datePickerContainer}>
         <TextInput
           label="Date of Collection"
-          value={formatDate(collectionDate)}
+          value={collectionDate}
+          onChangeText={setCollectionDate}
           mode="outlined"
           editable={false}
-          style={[styles.input, { flex: 1 }]}
+          style={[styles.input, styles.dateInput]}
         />
         <IconButton
           icon="calendar"
           size={24}
-          onPress={() => setCollectionDateDialogVisible(true)} // Open collection date dialog
+          onPress={showDatePicker}
         />
       </View>
-
       <Button
         mode="contained"
         onPress={handleStartCollection}
@@ -291,14 +298,7 @@ const HomeScreen = () => {
       >
         ADMIN TOOLS
       </Button>
-      {/* <Button
-        mode="outlined"
-        onPress={handleTest}
-        style={styles.adminButton}
-        labelStyle={styles.adminButtonText}
-      >
-        TEST
-      </Button> */}
+
       <AuthDialog
         visible={isDialogVisible}
         onClose={handleDialogClose}
@@ -337,9 +337,17 @@ const HomeScreen = () => {
         visible={isBluetoothConfigVisible}
         onClose={() => setBluetoothConfigVisible(false)}
       />
+      <DateTimePicker
+        isVisible={isDatePickerVisible}
+        mode="date"
+        onConfirm={handleDateConfirm}
+        onCancel={hideDatePicker}
+      />
     </View>
   );
 };
+
+export default HomeScreen;
 
 const styles = StyleSheet.create({
   container: {
@@ -364,14 +372,15 @@ const styles = StyleSheet.create({
   input: {
     width: '100%',
     marginBottom: 15,
-    zIndex: 0,
   },
-  dateInputContainer: {
+  datePickerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     width: '100%',
     marginBottom: 15,
-    zIndex: 0,
+  },
+  dateInput: {
+    flex: 1,
   },
   startButton: {
     width: '100%',
@@ -392,6 +401,3 @@ const styles = StyleSheet.create({
     color: '#0A154D',
   },
 });
-
-export default HomeScreen;
-

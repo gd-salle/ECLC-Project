@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { View, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { Appbar, Card, Paragraph, Text, Searchbar, Button } from 'react-native-paper';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
-import { fetchCollectibles, fetchAllCollectibles, fetchPeriodDateById } from '../services/CollectiblesServices';
+import { fetchCollectibles, fetchAllCollectibles, fetchPeriodDateById, updateAll } from '../services/CollectiblesServices';
 
 const Collectibles = ({ route }) => {
   const navigation = useNavigation();
@@ -56,6 +56,7 @@ const Collectibles = ({ route }) => {
 
   const handleUpdatePress = async () => {
     getData();
+    await updateAll();
   };
 
   return (

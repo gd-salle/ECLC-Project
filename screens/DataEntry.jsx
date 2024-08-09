@@ -4,7 +4,7 @@ import { Appbar, Card, Text, TextInput, Checkbox, Button, Divider } from 'react-
 import { useNavigation, useRoute } from '@react-navigation/native';
 import ConfirmationDialog from '../components/ConfirmationDialog';
 import WarningConfirmationDialog from '../components/WarningConfimationDialog';
-import { fetchPeriodDateById, numberToWords, updateCollectible } from '../services/CollectiblesServices';
+import { fetchPeriodDateById, numberToWords, updateCollectible} from '../services/CollectiblesServices';
 import { printReceipt } from '../services/PrintService';
 import { getConnectionStatus } from '../services/BluetoothService';
 import BluetoothConfig from '../components/BluetoothConfig';

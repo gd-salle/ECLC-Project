@@ -6,19 +6,76 @@ import { storePeriodDate } from './CollectiblesServices';
 import { getConsultantInfo } from './UserService';
 import * as Sharing from 'expo-sharing';
 
+// Function to check if an account number already exists in the list
+const isDuplicateCollectible = (accountNumbers, account_number) => {
+  console.log('Checking for duplicate:', account_number);
+  console.log('Account Numbers:', accountNumbers);
+
+  // Ensure all account numbers are of the same type (number) for comparison
+  const accountNumberSet = new Set(accountNumbers.map(num => Number(num)));
+  const numberToCheck = Number(account_number);
+  
+  console.log('Account Numbers Set:', Array.from(accountNumberSet));
+  console.log('Number to Check:', numberToCheck);
+  
+  return accountNumberSet.has(numberToCheck);
+};
+
 // Function to insert collectibles data into the database
 export const insertCollectiblesIntoDatabase = async (entry) => {
   try {
     const db = await openDatabase();
     const { account_number, name, remaining_balance, due_date, payment_type, cheque_number, amount_paid, daily_due, creditors_name, is_printed, period_id } = entry;
-    await db.runAsync(
-      'INSERT OR IGNORE INTO collectibles (account_number, name, remaining_balance, due_date, payment_type, cheque_number, amount_paid, daily_due, creditors_name, is_printed, period_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [account_number, name, parseFloat(remaining_balance), due_date, parseFloat(amount_paid), payment_type, cheque_number,parseFloat(daily_due), creditors_name, is_printed, period_id]
+    const now = new Date();
+    const currentDate = now.toISOString().split('T')[0];
+
+    // Fetch all collectibles for the current date
+    const allRows = await db.getAllAsync(
+      'SELECT * FROM collectibles c JOIN period p ON c.period_id = p.period_id WHERE p.date = ?', 
+      [currentDate] // Pass currentDate as a parameter
     );
+
+    // Log fetched rows for debugging
+    console.log('All Rows from DB:', allRows);
+
+    // Map the rows from the database to get the account numbers
+    const accountNumbers = allRows.map(row => row.account_number);
+    console.log('Account Numbers from DB:', accountNumbers);
+
+    // Check for duplicates using the extracted account numbers
+    const isDuplicate = isDuplicateCollectible(accountNumbers, account_number);
+    console.log('Duplicate Check Result:', isDuplicate);
+
+    if (isDuplicate) {
+      Alert.alert('Duplicate Entry Detected', `Account number ${account_number} already exists for todays period.`);
+      return false; // Indicate failure due to duplicate
+    }
+
+    // Proceed with adding the new collectible if no duplicate is found
+    await db.runAsync(
+      'INSERT INTO collectibles (account_number, name, remaining_balance, due_date, payment_type, cheque_number, amount_paid, daily_due, creditors_name, is_printed, period_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [account_number, name, parseFloat(remaining_balance), due_date, payment_type, cheque_number, parseFloat(amount_paid), parseFloat(daily_due), creditors_name, is_printed, period_id]
+    );
+
+    console.log('Insertion successful for account number:', account_number);
+    return true; // Indicate success
+
   } catch (error) {
     console.error('Error inserting collectibles data into the database:', error);
+    return false; // Indicate failure
   }
 };
+
+
+
+
+
+
+
+
+
+
+
 
 // Function to handle import of CSV file
 export const handleImport = async (selectedCollectionDate) => {
@@ -58,9 +115,15 @@ export const handleImport = async (selectedCollectionDate) => {
 
   try {
     const content = await FileSystem.readAsStringAsync(csvFile.uri);
-    await processCSVContent(content, selectedCollectionDate, periodID);
-    console.log('File processed successfully');
-    return true;
+    const success = await processCSVContent(content, selectedCollectionDate, periodID);
+
+    if (success) {
+      console.log('File processed successfully');
+    } else {
+      const db = await openDatabase();
+      await deletePeriod(db, periodID);
+    }
+    return success;
   } catch (e) {
     console.log('Error reading file:', e);
     Alert.alert('Error', 'Failed to read file');
@@ -77,7 +140,7 @@ const processCSVContent = async (content, selectedCollectionDate, periodID) => {
   const rows = content.split('\n').map(row => row.trim()).filter(row => row.length > 0);
   if (rows.length < 2) {
     Alert.alert('Error', 'The CSV file is empty or does not contain enough data.');
-    return;
+    return false;
   }
 
   const headers = rows[0].split(',').map(header => header.trim());
@@ -86,14 +149,14 @@ const processCSVContent = async (content, selectedCollectionDate, periodID) => {
   const missingHeaders = requiredHeaders.filter(header => !headers.includes(header));
   if (missingHeaders.length > 0) {
     Alert.alert('Error', `Invalid CSV format. Missing headers: ${missingHeaders.join(', ')}`);
-    return;
+    return false;
   }
 
   // Check for any extra headers that are not required
   const extraHeaders = headers.filter(header => !requiredHeaders.includes(header));
   if (extraHeaders.length > 0) {
     Alert.alert('Error', `Invalid CSV format. Extra headers found: ${extraHeaders.join(', ')}`);
-    return;
+    return false;
   }
 
   const data = rows.slice(1).map((row, rowIndex) => {
@@ -119,15 +182,20 @@ const processCSVContent = async (content, selectedCollectionDate, periodID) => {
 
   if (incompleteRows.length > 0) {
     Alert.alert('Error', `Incomplete data found:\n${incompleteRows.join('\n')}`);
-    return;
+    return false;
   }
 
   for (const entry of data) {
-    await insertCollectiblesIntoDatabase(entry);
+    const success = await insertCollectiblesIntoDatabase(entry);
+    if (!success) {
+      return false; // Stop further processing if there's an error
+    }
   }
 
   Alert.alert('Success', 'Collectibles Successfully Imported');
+  return true;
 };
+
 
 
 
@@ -281,4 +349,8 @@ const deletePeriodData = async (db, periodId) => {
     DELETE FROM period
     WHERE period_id = ?
   `, [periodId]);
+};
+const deletePeriod = async (db, periodId) => {
+  await db.runAsync(
+    'DELETE FROM period WHERE period_id = ?', [periodId]);
 };
